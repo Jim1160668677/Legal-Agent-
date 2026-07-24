@@ -27,6 +27,8 @@
         "lint": "eslint .",
         "smoke": "tsx src/scripts/agnes-smoke.ts",
         "eval:intent": "tsx src/scripts/intent-eval.ts",
+        "import:knowledge": "tsx src/scripts/import-legal-knowledge.ts",
+        "import:law": "tsx src/scripts/import-law-articles.ts",
         "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
         "test:watch": "vitest",
         "test:report": "vitest run --reporter=json --outputFile=reports/test-results.json",

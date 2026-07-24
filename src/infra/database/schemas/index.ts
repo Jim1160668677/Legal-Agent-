@@ -30,6 +30,9 @@ export {
   IntentEvalSet,
   IntentEvalSetSchema,
   type IntentEvalSetDocument,
+  CasePrecedent,
+  CasePrecedentSchema,
+  type CasePrecedentDocument,
 } from './legal.schema';
 
 export {

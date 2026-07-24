@@ -28,9 +28,10 @@ import { MemoryManagerService } from './memory/memory-manager.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { ChatController } from './chat/chat.controller';
 import { llmServiceProvider } from './llm/llm.provider';
+import { KnowledgeBaseModule } from './knowledge/knowledge-base.module';
 
 @Module({
-  imports: [LoggerModule, AuditModule],
+  imports: [LoggerModule, AuditModule, KnowledgeBaseModule],
   controllers: [ChatController],
   providers: [
     llmServiceProvider,

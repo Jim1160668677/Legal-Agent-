@@ -14,6 +14,7 @@ import { OrchestratorService } from '../../src/modules/legal/orchestrator/orches
 import type { IntentResult } from '../../src/types/intent';
 import type { DialogContext } from '../../src/types/dialog';
 import type { LlmService, LlmChunk, LawRefCheckResult } from '../../src/types/llm';
+import type { KnowledgeResult } from '../../src/modules/legal/knowledge/knowledge.types';
 import { requestContext } from '../../src/common/context/request-context';
 
 function makeLogger() {
@@ -62,6 +63,22 @@ function makeMemory() {
     getRelevantMemories: vi.fn().mockResolvedValue([]),
   };
 }
+
+/** 构造 mock KnowledgeBaseService */
+function makeKnowledgeBase(results: KnowledgeResult[] = []) {
+  return { queryByKeyword: vi.fn().mockResolvedValue(results) };
+}
+
+const sampleKbResult: KnowledgeResult = {
+  type: 'process',
+  title: '民事诉讼一审流程',
+  content: '民事诉讼流程包括立案受理、开庭审理等阶段。',
+  structured: {
+    steps: [{ stage: '立案受理', description: '法院七日内决定是否立案', duration: '7日内' }],
+  },
+  lawRefs: [{ ref: '民事诉讼法第一百二十六条', verified: false }],
+  score: 1.0,
+};
 
 /** 构造 mock LlmService：stream 按给定 deltas 产出，validateLawRefs 返回空 */
 function makeLlm(deltas: string[], opts?: { fail?: boolean; usage?: LlmChunk['usage'] }) {
@@ -214,6 +231,80 @@ describe('OrchestratorService', () => {
       expect(chunk.delta).toContain('period_calculator');
       const meta = frames[1] as { source: string };
       expect(meta.source).toBe('tool');
+    });
+  });
+
+  describe('正常场景：知识层命中（A2-W1）', () => {
+    it('route=knowledge 且 KnowledgeBase 命中 → chunk(知识库)+meta(faq)+disclaimer+done', async () => {
+      const kb = makeKnowledgeBase([sampleKbResult]);
+      const svc = new OrchestratorService(
+        makeIntentRouter({
+          intent: 'process_guide',
+          route: 'knowledge',
+          confidence: 0.85,
+        }) as never,
+        makeRuleEngine(null) as never,
+        makeMemory() as never,
+        undefined,
+        audit as never,
+        logger as never,
+        kb as never,
+      );
+      const frames = await collectFrames(svc, '民事诉讼流程');
+      const types = frames.map((f) => (f as { type: string }).type);
+      expect(types).toEqual(['chunk', 'meta', 'disclaimer', 'done']);
+      const chunk = frames[0] as { delta: string };
+      expect(chunk.delta).toContain('民事诉讼一审流程');
+      expect(chunk.delta).toContain('流程步骤');
+      const meta = frames[1] as { source: string; lawRefs: unknown[] };
+      expect(meta.source).toBe('faq');
+      expect(meta.lawRefs).toHaveLength(1);
+      expect(kb.queryByKeyword).toHaveBeenCalledWith('民事诉讼流程', { limit: 3 });
+    });
+
+    it('route=knowledge KnowledgeBase 未命中 → 落 LLM', async () => {
+      const llm = makeLlm(['LLM', '回复']);
+      const kb = makeKnowledgeBase([]);
+      const svc = new OrchestratorService(
+        makeIntentRouter({
+          intent: 'process_guide',
+          route: 'knowledge',
+          confidence: 0.85,
+        }) as never,
+        makeRuleEngine(null) as never,
+        makeMemory() as never,
+        llm as unknown as LlmService,
+        audit as never,
+        logger as never,
+        kb as never,
+      );
+      const frames = await collectFrames(svc, '问题');
+      const meta = frames.find((f) => (f as { type: string }).type === 'meta') as {
+        source: string;
+      };
+      expect(meta.source).toBe('llm');
+    });
+
+    it('route=knowledge 无 KnowledgeBase 注入 → 落 LLM', async () => {
+      const llm = makeLlm(['LLM回复']);
+      const svc = new OrchestratorService(
+        makeIntentRouter({
+          intent: 'process_guide',
+          route: 'knowledge',
+          confidence: 0.85,
+        }) as never,
+        makeRuleEngine(null) as never,
+        makeMemory() as never,
+        llm as unknown as LlmService,
+        audit as never,
+        logger as never,
+        // knowledge 未注入（@Optional）
+      );
+      const frames = await collectFrames(svc, '问题');
+      const meta = frames.find((f) => (f as { type: string }).type === 'meta') as {
+        source: string;
+      };
+      expect(meta.source).toBe('llm');
     });
   });
 

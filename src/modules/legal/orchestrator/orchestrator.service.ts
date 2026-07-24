@@ -25,6 +25,8 @@ import type { IntentRouterService } from '../intent/intent-router.service';
 import { LLM_SERVICE_TOKEN } from '../intent/intent-router.service';
 import type { RuleEngineService } from '../rule/rule-engine.service';
 import type { MemoryManagerService } from '../memory/memory-manager.service';
+import type { KnowledgeBaseService } from '../knowledge/knowledge-base.service';
+import type { KnowledgeResult } from '../knowledge/knowledge.types';
 import { type MemoryEntry } from '../memory/memory-manager.service';
 import type { AuditLogService } from '../../platform/audit/audit-log.service';
 import type { AppLoggerService } from '../../platform/logger/logger.service';
@@ -51,6 +53,7 @@ export class OrchestratorService {
     @Optional() @Inject(LLM_SERVICE_TOKEN) private readonly llm?: LlmService,
     private readonly audit?: AuditLogService,
     private readonly logger?: AppLoggerService,
+    @Optional() private readonly knowledge?: KnowledgeBaseService,
   ) {}
 
   /**
@@ -136,8 +139,17 @@ export class OrchestratorService {
       return;
     }
 
-    // Layer 3：知识层占位（A2 实现，当前直接落 LLM）
-    // Layer 4：LLM 流式（rule-miss / knowledge / llm / reasoning / general_qa）
+    // Layer 3：知识层（A2-W1 接入 KnowledgeBase，命中即返；未命中落 LLM）
+    if (route === 'knowledge' && this.knowledge) {
+      const kbResults = await this.knowledge.queryByKeyword(input, { limit: 3 });
+      if (kbResults.length > 0) {
+        yield* this.yieldKnowledgeAnswer(intent, route, kbResults, sessionId, userId);
+        return;
+      }
+      // 知识库未命中 → 落 LLM
+    }
+
+    // Layer 4：LLM 流式（rule-miss / knowledge-miss / llm / reasoning / general_qa）
     yield* this.streamLlm(input, intent, route, memories, sessionId, userId, traceId, startedAt);
   }
 
@@ -168,6 +180,69 @@ export class OrchestratorService {
     };
     yield { type: 'disclaimer', text: DISCLAIMER_TEXT };
     yield { type: 'done', traceId: requestContext.get()?.traceId ?? sessionId };
+  }
+
+  // ===== 知识层命中输出（A2-W1） =====
+
+  private async *yieldKnowledgeAnswer(
+    intent: IntentType,
+    route: RouteTarget,
+    results: KnowledgeResult[],
+    sessionId: string,
+    userId: string,
+  ): AsyncGenerator<ChatFrame, void, void> {
+    const answer = this.formatKnowledgeResults(results);
+    yield { type: 'chunk', delta: answer };
+    await this.memory.appendDialog(sessionId, userId, {
+      role: 'assistant',
+      content: answer,
+      intent,
+    });
+    const lawRefs = results.flatMap((r) => r.lawRefs);
+    yield {
+      type: 'meta',
+      intent,
+      route,
+      source: 'faq',
+      lawRefs,
+      fallbackUsed: false,
+    };
+    yield { type: 'disclaimer', text: DISCLAIMER_TEXT };
+    yield { type: 'done', traceId: requestContext.get()?.traceId ?? sessionId };
+  }
+
+  /** 将知识库结构化结果格式化为可读文本 */
+  private formatKnowledgeResults(results: KnowledgeResult[]): string {
+    return results
+      .map((r) => {
+        let text = `【${r.title}】\n${r.content}`;
+        const steps = r.structured?.steps as
+          Array<{ stage: string; description: string; duration?: string }> | undefined;
+        if (steps && steps.length > 0) {
+          text +=
+            '\n\n流程步骤：\n' +
+            steps
+              .map(
+                (s, i) =>
+                  `${i + 1}. ${s.stage}：${s.description}${s.duration ? `（${s.duration}）` : ''}`,
+              )
+              .join('\n');
+        }
+        const materials = r.structured?.materials as
+          Array<{ name: string; required: boolean; note?: string }> | undefined;
+        if (materials && materials.length > 0) {
+          text +=
+            '\n\n所需材料：\n' +
+            materials
+              .map(
+                (m, i) =>
+                  `${i + 1}. ${m.name}${m.required ? '（必需）' : '（可选）'}${m.note ? `：${m.note}` : ''}`,
+              )
+              .join('\n');
+        }
+        return text;
+      })
+      .join('\n\n---\n\n');
   }
 
   // ===== LLM 流式 =====
