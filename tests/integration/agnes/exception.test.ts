@@ -5,11 +5,7 @@ import {
   hasAgnesKey,
   DEFAULT_OPTS,
 } from '../../helpers/agnesFixture';
-import {
-  AuthError,
-  TimeoutError,
-  isLlmError,
-} from '../../../src/services/legal/llm/errors';
+import { AuthError, TimeoutError, isLlmError } from '../../../src/services/legal/llm/errors';
 
 /**
  * 异常场景集成测试 — 真实 Agnes API。
