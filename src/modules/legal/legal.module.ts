@@ -34,9 +34,10 @@ import { ChatController } from './chat/chat.controller';
 import { llmServiceProvider } from './llm/llm.provider';
 import { KnowledgeBaseModule } from './knowledge/knowledge-base.module';
 import { EmbeddingModule } from './embedding/embedding.module';
+import { RagModule } from './retrieval/rag.module';
 
 @Module({
-  imports: [LoggerModule, AuditModule, KnowledgeBaseModule, EmbeddingModule],
+  imports: [LoggerModule, AuditModule, KnowledgeBaseModule, EmbeddingModule, RagModule],
   controllers: [ChatController],
   providers: [
     llmServiceProvider,
