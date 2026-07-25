@@ -17,7 +17,11 @@
  *   - OrchestratorService 三层降级链编排（rule→knowledge占位→llm→人工引导）
  *   - ChatController POST /v1/chat（SSE 流式 + JwtAuthGuard + 审计）
  *
- * 设计依据：A1 §三 NestJS 工程结构；A1-W4 迁移要点。
+ * A2-W2 扩展：
+ *   - EmbeddingModule：向量化（Mock/Agnes 可插拔）+ InMemoryVectorStore，
+ *     为 A2 混合检索（BM25 + 向量 + RRF 融合）提供基础设施
+ *
+ * 设计依据：A1 §三 NestJS 工程结构；A1-W4 迁移要点；A2 §五/§六。
  */
 import { Module } from '@nestjs/common';
 import { LoggerModule } from '../platform/logger/logger.module';
@@ -29,9 +33,10 @@ import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { ChatController } from './chat/chat.controller';
 import { llmServiceProvider } from './llm/llm.provider';
 import { KnowledgeBaseModule } from './knowledge/knowledge-base.module';
+import { EmbeddingModule } from './embedding/embedding.module';
 
 @Module({
-  imports: [LoggerModule, AuditModule, KnowledgeBaseModule],
+  imports: [LoggerModule, AuditModule, KnowledgeBaseModule, EmbeddingModule],
   controllers: [ChatController],
   providers: [
     llmServiceProvider,

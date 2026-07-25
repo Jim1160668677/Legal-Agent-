@@ -39,6 +39,15 @@ export const validationSchema = Joi.object({
   // PII 加密（可选；缺失则由 JWT_SECRET 派生）
   PII_ENCRYPTION_KEY: Joi.string().allow('').default(''),
 
+  // Embedding 向量化（A2-W2；默认 mock 无外部依赖）
+  EMBEDDING_PROVIDER: Joi.string().valid('mock', 'agnes').default('mock'),
+  EMBEDDING_API_KEY: Joi.string().allow('').default(''),
+  EMBEDDING_BASE_URL: Joi.string().default('https://apihub.agnes-ai.com/v1'),
+  EMBEDDING_MODEL: Joi.string().default('agnes-embedding-2.0'),
+  EMBEDDING_DIMENSION: Joi.number().integer().min(64).max(4096).default(1536),
+  EMBEDDING_BATCH_SIZE: Joi.number().integer().min(1).max(100).default(10),
+  EMBEDDING_CACHE_TTL_SEC: Joi.number().integer().min(0).default(2592000),
+
   // 日志级别
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
 });

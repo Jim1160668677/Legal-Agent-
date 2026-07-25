@@ -47,5 +47,14 @@ export default registerAs('app', (): AppConfig => {
     pii: {
       encryptionKey: process.env.PII_ENCRYPTION_KEY,
     },
+    embedding: {
+      provider: (process.env.EMBEDDING_PROVIDER ?? 'mock') as 'mock' | 'agnes',
+      apiKey: process.env.EMBEDDING_API_KEY ?? '',
+      baseUrl: process.env.EMBEDDING_BASE_URL ?? 'https://apihub.agnes-ai.com/v1',
+      model: process.env.EMBEDDING_MODEL ?? 'agnes-embedding-2.0',
+      dimension: parseInt(process.env.EMBEDDING_DIMENSION ?? '1536', 10),
+      batchSize: parseInt(process.env.EMBEDDING_BATCH_SIZE ?? '10', 10),
+      cacheTtlSec: parseInt(process.env.EMBEDDING_CACHE_TTL_SEC ?? '2592000', 10), // 30 天
+    },
   };
 });
