@@ -14,6 +14,7 @@ import { Module } from '@nestjs/common';
 import type { Provider } from '@nestjs/common';
 import { RagService } from './rag.service';
 import { InMemoryBm25Retriever } from './in-memory-bm25.retriever';
+import { LawUpdatePipelineService } from './law-update-pipeline.service';
 import { EmbeddingModule } from '../embedding/embedding.module';
 import { KnowledgeBaseModule } from '../knowledge/knowledge-base.module';
 import { LoggerModule } from '../../platform/logger/logger.module';
@@ -27,7 +28,7 @@ export const bm25RetrieverProvider: Provider = {
 
 @Module({
   imports: [LoggerModule, EmbeddingModule, KnowledgeBaseModule],
-  providers: [RagService, bm25RetrieverProvider],
-  exports: [RagService],
+  providers: [RagService, bm25RetrieverProvider, LawUpdatePipelineService],
+  exports: [RagService, LawUpdatePipelineService],
 })
 export class RagModule {}
