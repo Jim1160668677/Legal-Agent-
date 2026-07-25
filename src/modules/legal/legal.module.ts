@@ -29,6 +29,7 @@ import { EmbeddingModule } from './embedding/embedding.module';
 import { RagModule } from './retrieval/rag.module';
 import { JobModule } from './job/job.module';
 import { JobController } from './job/job.controller';
+import { AgentsModule } from './agents/agents.module';
 
 @Module({
   imports: [
@@ -40,9 +41,17 @@ import { JobController } from './job/job.controller';
     EmbeddingModule,
     RagModule,
     JobModule,
+    // A4-W1 新增：Agent 域（AgentRegistry + 横切依赖）
+    AgentsModule,
   ],
   controllers: [ChatController, JobController],
   providers: [IntentRouterService, RuleEngineService, MemoryManagerService, OrchestratorService],
-  exports: [IntentRouterService, RuleEngineService, MemoryManagerService, OrchestratorService],
+  exports: [
+    IntentRouterService,
+    RuleEngineService,
+    MemoryManagerService,
+    OrchestratorService,
+    AgentsModule,
+  ],
 })
 export class LegalModule {}

@@ -62,3 +62,19 @@ export {
   type JobStatus,
   type JobCapability,
 } from './job.schema';
+
+// A4-W1 新增：Agent 域（agent_registry + agent_invocation_log）
+export {
+  AgentRegistryRecord,
+  AgentRegistrySchema,
+  type AgentRegistryDocument,
+  type AgentRegistryStatus,
+  type AgentExposure,
+} from './agent-registry.schema';
+
+export {
+  AgentInvocationLog,
+  AgentInvocationLogSchema,
+  type AgentInvocationLogDocument,
+  type InvocationResult,
+} from './agent-invocation-log.schema';

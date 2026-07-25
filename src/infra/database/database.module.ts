@@ -35,6 +35,10 @@ import {
   DocumentRecordSchema,
   AgentJob,
   AgentJobSchema,
+  AgentRegistryRecord,
+  AgentRegistrySchema,
+  AgentInvocationLog,
+  AgentInvocationLogSchema,
 } from './schemas';
 
 @Module({
@@ -64,6 +68,9 @@ import {
       { name: DocumentRecord.name, schema: DocumentRecordSchema },
       // A3-W4 新增：异步任务
       { name: AgentJob.name, schema: AgentJobSchema },
+      // A4-W1 新增：Agent 域（agent_registry + agent_invocation_log）
+      { name: AgentRegistryRecord.name, schema: AgentRegistrySchema },
+      { name: AgentInvocationLog.name, schema: AgentInvocationLogSchema },
     ]),
   ],
   exports: [MongooseModule],
