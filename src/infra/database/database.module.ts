@@ -29,6 +29,12 @@ import {
   FeatureFlagSchema,
   LlmCache,
   LlmCacheSchema,
+  DocumentTemplateRecord,
+  DocumentTemplateRecordSchema,
+  DocumentRecord,
+  DocumentRecordSchema,
+  AgentJob,
+  AgentJobSchema,
 } from './schemas';
 
 @Module({
@@ -53,6 +59,11 @@ import {
       { name: CasePrecedent.name, schema: CasePrecedentSchema },
       { name: FeatureFlag.name, schema: FeatureFlagSchema },
       { name: LlmCache.name, schema: LlmCacheSchema },
+      // A3-W3 新增：文书域
+      { name: DocumentTemplateRecord.name, schema: DocumentTemplateRecordSchema },
+      { name: DocumentRecord.name, schema: DocumentRecordSchema },
+      // A3-W4 新增：异步任务
+      { name: AgentJob.name, schema: AgentJobSchema },
     ]),
   ],
   exports: [MongooseModule],

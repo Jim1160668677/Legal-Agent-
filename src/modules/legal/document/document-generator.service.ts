@@ -28,6 +28,8 @@ import type { LawRef } from '../../../types/llm';
 import type { RagService } from '../retrieval/rag.service';
 import type { AuditLogService } from '../../platform/audit/audit-log.service';
 import type { AppLoggerService } from '../../platform/logger/logger.service';
+import type { JobService } from '../job/job.service';
+import type { DocumentRecordService } from './document-record.service';
 
 /** 文书生成入参 */
 export interface DocumentGenerateDto {
@@ -70,6 +72,8 @@ export class DocumentGeneratorService {
     @Optional() private readonly rag?: RagService,
     @Optional() private readonly audit?: AuditLogService,
     @Optional() private readonly logger?: AppLoggerService,
+    @Optional() private readonly jobService?: JobService,
+    @Optional() private readonly recordService?: DocumentRecordService,
   ) {
     for (const t of DOCUMENT_TEMPLATES) {
       this.templates.set(t.code, t);
@@ -112,7 +116,10 @@ export class DocumentGeneratorService {
    * @throws BadRequestException(3001) 变量校验失败
    * @throws BadRequestException(3002) 渲染失败
    */
-  async generate(dto: DocumentGenerateDto): Promise<DocumentGenerateResult> {
+  async generate(
+    dto: DocumentGenerateDto,
+    ctx?: { userId?: string; caseId?: string; persist?: boolean },
+  ): Promise<DocumentGenerateResult> {
     const startedAt = Date.now();
     // 1. 加载模板
     const tmpl = this.getTemplate(dto.templateCode);
@@ -172,24 +179,53 @@ export class DocumentGeneratorService {
     // 6. 注入免责声明
     const fullText = `${renderedText}\n\n${DISCLAIMER_TEXT}`;
 
-    // 7. 审计
+    // 7. 生成 docId
+    const docId = randomUUID();
+
+    // 8. （可选）持久化到 document_record（A3-W3 新增）
+    if (ctx?.persist && this.recordService && ctx.userId) {
+      try {
+        await this.recordService.create({
+          docId,
+          userId: ctx.userId,
+          caseId: ctx.caseId,
+          templateCode: dto.templateCode,
+          templateTitle: tmpl.title,
+          templateVersion: tmpl.version,
+          varsFilled: dto.vars,
+          renderedText: fullText,
+          lawRefs,
+        });
+      } catch (err) {
+        // 持久化失败不阻塞生成结果返回（best-effort）
+        this.logger?.warn('DocumentGenerator: document_record 持久化失败', {
+          docId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // 9. 审计
     this.audit?.write('document_generate', {
+      docId,
       templateCode: dto.templateCode,
       templateTitle: tmpl.title,
       lawRefCount: lawRefs.length,
       enableRag: !!dto.enableRag,
       chars: fullText.length,
+      persist: !!ctx?.persist,
     });
 
     this.logger?.info('DocumentGenerator: 文书生成完成', {
+      docId,
       templateCode: dto.templateCode,
       durationMs: Date.now() - startedAt,
       lawRefs: lawRefs.length,
     });
 
-    // 8. 返回
+    // 10. 返回
     return {
-      docId: randomUUID(),
+      docId,
       templateCode: dto.templateCode,
       templateTitle: tmpl.title,
       renderedText: fullText,
@@ -197,25 +233,84 @@ export class DocumentGeneratorService {
       lawRefs,
       retrievedLawContext,
       disclaimer: DISCLAIMER_TEXT,
-      exportReady: false,
+      // exportReady 由是否接入 ExportService 决定；当前 A3-W3 已接入，标记为 true
+      exportReady: true,
     };
   }
 
   /**
-   * 异步生成（W2 桩）：返回 jobId，实际异步任务在后续阶段接入 JobService。
-   * 当前实现：立即返回 uuid，不执行实际生成。
+   * 异步生成（A3-W4 接入 JobService）：创建任务并立即执行。
+   *
+   * 流程：
+   *   1. JobService.create('document_generate', { dto, ctx }, userId) → jobId
+   *   2. JobService.runJob(jobId, executor) 执行实际生成
+   *   3. 返回 { jobId, status }
+   *
+   * 注：当前为同步触发（fire-and-forget）；A4 接入消息队列后改为 worker 拉取。
+   *     JobService.runJob 内部已封装状态机 + 超时保护。
    */
-  async generateAsync(dto: DocumentGenerateDto): Promise<{ jobId: string; status: 'pending' }> {
-    const jobId = randomUUID();
-    this.logger?.info('DocumentGenerator: 异步生成任务已受理（W2 桩）', {
+  async generateAsync(
+    dto: DocumentGenerateDto,
+    ctx: { userId: string; caseId?: string },
+  ): Promise<{ jobId: string; status: 'pending' | 'completed' | 'failed' }> {
+    // 无 JobService 注入时回退到桩行为（保持向后兼容）
+    if (!this.jobService) {
+      const jobId = randomUUID();
+      this.logger?.warn('DocumentGenerator: JobService 未注入，generateAsync 返回桩 jobId', {
+        jobId,
+        templateCode: dto.templateCode,
+      });
+      this.audit?.write('document_generate', {
+        jobId,
+        templateCode: dto.templateCode,
+        async: true,
+        stub: true,
+      });
+      return { jobId, status: 'pending' };
+    }
+
+    // 1. 创建任务
+    const { jobId } = await this.jobService.create('document_generate', { dto, ctx }, ctx.userId);
+
+    this.logger?.info('DocumentGenerator: 异步生成任务已创建', {
       jobId,
       templateCode: dto.templateCode,
+      userId: ctx.userId,
     });
     this.audit?.write('document_generate', {
       jobId,
       templateCode: dto.templateCode,
       async: true,
+      userId: ctx.userId,
     });
+
+    // 2. 同步触发执行（fire-and-forget；A4 改为 worker 拉取）
+    //    不 await：让调用方立即拿到 jobId，执行过程在后台进行
+    void this.jobService
+      .runJob(jobId, async (params) => {
+        const { dto: innerDto, ctx: innerCtx } = params as {
+          dto: DocumentGenerateDto;
+          ctx: { userId: string; caseId?: string };
+        };
+        const result = await this.generate(innerDto, {
+          userId: innerCtx.userId,
+          caseId: innerCtx.caseId,
+          persist: true,
+        });
+        return {
+          docId: result.docId,
+          templateCode: result.templateCode,
+          templateTitle: result.templateTitle,
+        } as Record<string, unknown>;
+      })
+      .catch((err: unknown) => {
+        // runJob 内部已写入 failed 状态；这里仅记日志
+        this.logger?.error('DocumentGenerator: 异步任务执行失败', {
+          jobId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+
     return { jobId, status: 'pending' };
   }
 }

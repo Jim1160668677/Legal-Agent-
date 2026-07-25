@@ -1,6 +1,6 @@
 /**
- * Schema 汇总导出（A1-W1）。
- * 9 个集合按业务域分 4 文件：user / dialog / legal / system。
+ * Schema 汇总导出（A1-W1 + A3-W3 扩展）。
+ * 集合按业务域分文件：user / dialog / legal / system / document / job。
  */
 export {
   UserProfile,
@@ -43,3 +43,22 @@ export {
   LlmCacheSchema,
   type LlmCacheDocument,
 } from './system.schema';
+
+// A3-W3 新增：文书域（document_template + document_record）
+export {
+  DocumentTemplateRecord,
+  DocumentTemplateRecordSchema,
+  type DocumentTemplateRecordDocument,
+  DocumentRecord,
+  DocumentRecordSchema,
+  type DocumentRecordDocument,
+} from './document.schema';
+
+// A3-W4 新增：异步任务（agent_job）
+export {
+  AgentJob,
+  AgentJobSchema,
+  type AgentJobDocument,
+  type JobStatus,
+  type JobCapability,
+} from './job.schema';
