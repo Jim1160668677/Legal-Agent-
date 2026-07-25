@@ -1,8 +1,8 @@
 /**
- * LLM Provider 桥接（A1-W4 迁移）。
+ * LLM 配置桥接（A1-W4 迁移，A3-W1 重构）。
  *
- * 将现有 LlmService 层（src/services/legal/llm/*）迁移为 NestJS Provider，
- * 通过 LLM_SERVICE_TOKEN 注入 IntentRouter / OrchestratorService。
+ * A3-W1 起，LLM_SERVICE_TOKEN 由 LlmModule 装配（CachedLlmService 包装 legacy）。
+ * 本文件仅保留 buildLegacyConfig 工具函数，供 LlmModule 的 LEGACY_LLM_TOKEN 工厂复用。
  *
  * 配置桥接：
  *   现有 createDefaultRegistry 期望旧 AppConfig（src/config/types.ts）：
@@ -13,24 +13,16 @@
  *   差异点：agnes.baseUrl → agnes.baseURL（驼峰命名）；无 qwen；无 logLevel。
  *   此处做结构适配，无需改动现有 llm 层 105 测试（原样复用）。
  *
- * dev 模式 AGNES_API_KEY 允许为空：Provider 仍创建，实际 LLM 调用时由
- * AgnesProvider 报错，OrchestratorService 捕获后降级到人工引导（07 §1.4）。
- *
- * 设计依据：A1-W4 迁移要点；development-plan.md A1-W4。
+ * 设计依据：A3-W1 实施计划阶段 4；A1-W4 迁移要点。
  */
-import type { Provider } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { LlmService } from '../../../types/llm';
-import { LlmServiceImpl } from '../../../services/legal/llm';
-import { createDefaultRegistry } from '../../../services/legal/llm/registry';
+import type { ConfigService } from '@nestjs/config';
 import type { AppConfig as LegacyAppConfig } from '../../../config/types';
-import { LLM_SERVICE_TOKEN } from '../intent/intent-router.service';
 
 /**
  * 从 NestJS ConfigService 构建旧版 AppConfig 结构，供 createDefaultRegistry 复用。
  * 隔离新旧配置差异，避免污染现有 llm 层。
  */
-function buildLegacyConfig(config: ConfigService): LegacyAppConfig {
+export function buildLegacyConfig(config: ConfigService): LegacyAppConfig {
   const provider = config.get<'agnes' | 'qwen'>('app.llm.provider') ?? 'agnes';
   const agnesApiKey = config.get<string>('app.llm.agnes.apiKey') ?? '';
   const agnesBaseUrl =
@@ -58,17 +50,3 @@ function buildLegacyConfig(config: ConfigService): LegacyAppConfig {
     },
   };
 }
-
-/**
- * LLM_SERVICE_TOKEN 的 NestJS Provider 工厂。
- * 注：返回 LlmServiceImpl（实现 LlmService 接口），便于 IntentRouter/Orchestrator 注入。
- */
-export const llmServiceProvider: Provider = {
-  provide: LLM_SERVICE_TOKEN,
-  inject: [ConfigService],
-  useFactory: (config: ConfigService): LlmService => {
-    const legacyCfg = buildLegacyConfig(config);
-    const registry = createDefaultRegistry(legacyCfg);
-    return new LlmServiceImpl(registry);
-  },
-};

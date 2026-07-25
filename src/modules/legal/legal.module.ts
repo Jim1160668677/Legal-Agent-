@@ -31,21 +31,24 @@ import { RuleEngineService } from './rule/rule-engine.service';
 import { MemoryManagerService } from './memory/memory-manager.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { ChatController } from './chat/chat.controller';
-import { llmServiceProvider } from './llm/llm.provider';
+import { LlmModule } from './llm/llm.module';
+import { DocumentModule } from './document/document.module';
 import { KnowledgeBaseModule } from './knowledge/knowledge-base.module';
 import { EmbeddingModule } from './embedding/embedding.module';
 import { RagModule } from './retrieval/rag.module';
 
 @Module({
-  imports: [LoggerModule, AuditModule, KnowledgeBaseModule, EmbeddingModule, RagModule],
-  controllers: [ChatController],
-  providers: [
-    llmServiceProvider,
-    IntentRouterService,
-    RuleEngineService,
-    MemoryManagerService,
-    OrchestratorService,
+  imports: [
+    LoggerModule,
+    AuditModule,
+    LlmModule,
+    DocumentModule,
+    KnowledgeBaseModule,
+    EmbeddingModule,
+    RagModule,
   ],
+  controllers: [ChatController],
+  providers: [IntentRouterService, RuleEngineService, MemoryManagerService, OrchestratorService],
   exports: [IntentRouterService, RuleEngineService, MemoryManagerService, OrchestratorService],
 })
 export class LegalModule {}
