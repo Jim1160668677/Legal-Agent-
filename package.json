@@ -30,6 +30,7 @@
     "eval:retrieval": "node -r @swc-node/register src/scripts/retrieval-eval.ts",
     "eval:document": "tsx src/scripts/document-eval.ts",
     "eval:orchestration": "tsx src/scripts/orchestration-eval.ts",
+    "eval:tool": "tsx src/scripts/tool-eval.ts",
     "import:knowledge": "node -r @swc-node/register src/scripts/import-legal-knowledge.ts",
     "import:law": "node -r @swc-node/register src/scripts/import-law-articles.ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",

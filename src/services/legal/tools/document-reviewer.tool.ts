@@ -136,6 +136,14 @@ export class DocumentReviewerTool implements LegalTool<
     input: DocumentReviewerInput,
     ctx: ToolContext,
   ): Promise<ToolResult<DocumentReviewerOutput>> {
+    if (!input.documentText || input.documentText.trim().length === 0) {
+      throw new LegalToolError(
+        TOOL_ERROR_CODES.INVALID_INPUT,
+        'documentText 不能为空',
+        this.toolId,
+        'documentText',
+      );
+    }
     if (input.documentText.length > 50000) {
       throw new LegalToolError(
         TOOL_ERROR_CODES.INVALID_INPUT,

@@ -22,6 +22,8 @@
 import { Injectable } from '@nestjs/common';
 import { disabilityCoefficient, findStandard } from '../../../data/compensationStandards';
 import {
+  LegalToolError,
+  TOOL_ERROR_CODES,
   type JsonSchema,
   type LegalTool,
   type ToolContext,
@@ -107,6 +109,23 @@ export class CompensationQueryTool implements LegalTool<CompensationInput, Compe
     input: CompensationInput,
     ctx: ToolContext,
   ): Promise<ToolResult<CompensationOutput>> {
+    // 0. 入参范围校验（disabilityLevel 1-10）
+    if (input.disabilityLevel !== undefined) {
+      if (
+        typeof input.disabilityLevel !== 'number' ||
+        !Number.isInteger(input.disabilityLevel) ||
+        input.disabilityLevel < 1 ||
+        input.disabilityLevel > 10
+      ) {
+        throw new LegalToolError(
+          TOOL_ERROR_CODES.INVALID_INPUT,
+          `disabilityLevel 应为 1-10 的整数（实际: ${input.disabilityLevel}）`,
+          this.toolId,
+          'disabilityLevel',
+        );
+      }
+    }
+
     // 1. 加赔偿标准
     const { standard, matched } = findStandard(input.region);
     const warnings: string[] = [];
