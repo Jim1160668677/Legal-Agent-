@@ -10,9 +10,8 @@
  *   - A3-W2：DocumentModule（DocumentGenerator）
  *   - A3-W3+：DocumentModule 扩展（DocumentRecord + DocumentController + ExportService）+ JobModule
  *   - A4-W1：AgentsModule（AgentRegistry + 横切依赖）
- *   - A4-W2：RuleEngine / Memory 抽出独立模块（RuleEngineModule / MemoryModule），
- *            供 AgentsModule 注入给 LawLookupAgent / LegalQaAgent / MemoryAgent；
- *            7 核心 Agent 在 AgentsModule 注册（onModuleInit 统一 registry.register）
+ *   - A4-W2：RuleEngine / Memory / Intent 抽出独立模块，7 核心 Agent 在 AgentsModule 注册
+ *   - A4-W3：OrchestratorAgent 加入编排（AgentsModule 导出 OrchestratorAgent 供 ChatController 调用）
  *
  * JobController 在本模块声明（避免在 DocumentModule + LegalModule 双导入 JobModule 时
  * controller 路由被重复注册）。
@@ -22,7 +21,7 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from '../platform/logger/logger.module';
 import { AuditModule } from '../platform/audit/audit.module';
-import { IntentRouterService } from './intent/intent-router.service';
+import { IntentModule } from './intent/intent.module';
 import { RuleEngineModule } from './rule/rule-engine.module';
 import { MemoryModule } from './memory/memory.module';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
@@ -41,6 +40,7 @@ import { AgentsModule } from './agents/agents.module';
     LoggerModule,
     AuditModule,
     LlmModule,
+    IntentModule,
     RuleEngineModule,
     MemoryModule,
     DocumentModule,
@@ -50,10 +50,11 @@ import { AgentsModule } from './agents/agents.module';
     JobModule,
     // A4-W1 新增：Agent 域（AgentRegistry + 横切依赖）
     // A4-W2 扩展：7 核心 Agent 在此模块内注册
+    // A4-W3 扩展：OrchestratorAgent 加入编排
     AgentsModule,
   ],
   controllers: [ChatController, JobController],
-  providers: [IntentRouterService, OrchestratorService],
-  exports: [IntentRouterService, OrchestratorService, RuleEngineModule, MemoryModule, AgentsModule],
+  providers: [OrchestratorService],
+  exports: [OrchestratorService, IntentModule, RuleEngineModule, MemoryModule, AgentsModule],
 })
 export class LegalModule {}

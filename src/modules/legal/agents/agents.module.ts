@@ -39,6 +39,7 @@ import { MemoryModule } from '../memory/memory.module';
 import { KnowledgeBaseModule } from '../knowledge/knowledge-base.module';
 import { RagModule } from '../retrieval/rag.module';
 import { LlmModule } from '../llm/llm.module';
+import { IntentModule } from '../intent/intent.module';
 import { DocumentModule } from '../document/document.module';
 import { ExportModule } from '../export/export.module';
 import { AgentRegistry } from './registry';
@@ -49,6 +50,7 @@ import { ProcessGuideAgent } from './process-guide.agent';
 import { DocumentAgent } from './document.agent';
 import { CaseAnalysisAgent } from './case-analysis.agent';
 import { MemoryAgent } from './memory.agent';
+import { OrchestratorAgent } from './orchestrator.agent';
 
 @Module({
   imports: [
@@ -62,6 +64,7 @@ import { MemoryAgent } from './memory.agent';
     KnowledgeBaseModule,
     RagModule,
     LlmModule,
+    IntentModule,
     DocumentModule,
     ExportModule,
   ],
@@ -74,8 +77,9 @@ import { MemoryAgent } from './memory.agent';
     DocumentAgent,
     CaseAnalysisAgent,
     MemoryAgent,
+    OrchestratorAgent,
   ],
-  exports: [AgentRegistry],
+  exports: [AgentRegistry, OrchestratorAgent],
 })
 export class AgentsModule implements OnModuleInit {
   constructor(
@@ -87,10 +91,12 @@ export class AgentsModule implements OnModuleInit {
     private readonly document: DocumentAgent,
     private readonly caseAnalysis: CaseAnalysisAgent,
     private readonly memory: MemoryAgent,
+    private readonly orchestrator: OrchestratorAgent,
   ) {}
 
   onModuleInit(): void {
-    // 统一注册 7 核心 Agent（顺序按编排计划依赖：law-lookup 先于 legal-qa 注册便于短路）
+    // 统一注册 8 核心 Agent（含 OrchestratorAgent 自身）
+    // 顺序：先注册叶子 agent，最后注册编排器
     this.registry.register(this.lawLookup);
     this.registry.register(this.legalQa);
     this.registry.register(this.caseSearch);
@@ -98,5 +104,6 @@ export class AgentsModule implements OnModuleInit {
     this.registry.register(this.document);
     this.registry.register(this.caseAnalysis);
     this.registry.register(this.memory);
+    this.registry.register(this.orchestrator);
   }
 }
