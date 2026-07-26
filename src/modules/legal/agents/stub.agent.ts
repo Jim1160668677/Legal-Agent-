@@ -1,17 +1,17 @@
 /**
- * 3 桩 Agent（v2.3-W1 更新，A4 §5.2 v2.3 Agent）。
+ * 2 桩 Agent（v2.3-W4 更新，A4 §5.2 v2.3 Agent）。
  *
- * v2.3-W1 变更：
- *   - ToolAgent 已迁移至 tool.agent.ts，接入 ToolRegistry 实现 8 工具调度
- *   - 本文件保留 3 桩：NluAgent / ReasoningAgent / LawyerReviewAgent
+ * v2.3 演进：
+ *   - v2.3-W1：ToolAgent 迁移至 tool.agent.ts，接入 ToolRegistry
+ *   - v2.3-W4：NluAgent 迁移至 nlu.agent.ts，接入 NluModule 三服务（实体抽取/澄清/复合拆分）
+ *   - 本文件保留 2 桩：ReasoningAgent / LawyerReviewAgent
  *
  * 桩行为：返回 NOT_IMPLEMENTED（7005），
  * 完整逻辑后续 v2.3 阶段实现：
- *   - nlu          → v2.3 阶段八（nlu.extract / nlu.clarify）
  *   - reasoning    → v2.3 阶段九（case.reason / case.compare / law.apply_check，IRAC 推理）
  *   - lawyer-review → v2.3 阶段十（review.lawyer / review.score / review.compliance，L-Internal）
  *
- * 验收 #13：3 桩 Agent 返回 NotImplemented 但 card 注册正确。
+ * 验收 #13：2 桩 Agent 返回 NotImplemented 但 card 注册正确。
  *
  * 设计依据：A4 §5.2；A4 §十 验收 #13；A4 §十一 风险「桩 Agent 误调用」。
  */
@@ -50,53 +50,8 @@ abstract class StubAgentBase extends BaseAgent {
   }
 }
 
-// ===== NluAgent（v2.3 阶段八：nlu.extract / nlu.clarify）=====
-
-const NLU_CARD: AgentCard = {
-  agentId: 'nlu',
-  name: '自然语言理解',
-  description: '法律文本实体抽取 + 模糊意图澄清（v2.3 阶段八实现）',
-  version: '0.1.0',
-  capabilities: ['nlu.extract', 'nlu.clarify'],
-  inputSchema: {
-    type: 'object',
-    properties: {
-      text: { type: 'string', description: '待解析文本' },
-      slots: { type: 'array', description: '待抽取的槽位列表' },
-    },
-    required: ['text'],
-  },
-  outputSchema: {
-    type: 'object',
-    properties: {
-      entities: { type: 'array', description: '抽取的实体列表' },
-      clarification: { type: 'string', description: '澄清问题（nlu.clarify）' },
-      disclaimer: { type: 'string' },
-      lawRefs: { type: 'array' },
-      traceId: { type: 'string' },
-    },
-    required: ['disclaimer', 'lawRefs', 'traceId'],
-  },
-  piiLevel: 'L3',
-  exposure: 'L-Internal',
-  async: false,
-  timeout: 5_000,
-};
-
-@Injectable()
-export class NluAgent extends StubAgentBase {
-  readonly card = NLU_CARD;
-
-  constructor(
-    @Optional() pii?: PiiService,
-    @Optional() audit?: AuditLogService,
-    @Optional() logger?: AppLoggerService,
-  ) {
-    super(pii, audit, logger);
-  }
-}
-
 // ===== ReasoningAgent（v2.3 阶段九：IRAC 推理）=====
+// 注：NluAgent 已迁移至 nlu.agent.ts（v2.3-W4，接入 NluModule 三服务）
 
 const REASONING_CARD: AgentCard = {
   agentId: 'reasoning',

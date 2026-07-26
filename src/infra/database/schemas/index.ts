@@ -78,3 +78,27 @@ export {
   type AgentInvocationLogDocument,
   type InvocationResult,
 } from './agent-invocation-log.schema';
+
+// v2.3-W3 新增：法条引用图谱（law_citation_graph）
+export {
+  LawCitationGraph,
+  LawCitationGraphSchema,
+  type LawCitationGraphDocument,
+} from './citation-graph.schema';
+
+// v2.3-W4 新增：NLU 域（entity_extraction + clarification_session）
+export {
+  EntityExtraction,
+  EntityExtractionSchema,
+  type EntityExtractionDocument,
+  type EntityType,
+  type EntitySource,
+  EntityEntry,
+} from './entity-extraction.schema';
+
+export {
+  ClarificationSession,
+  ClarificationSessionSchema,
+  type ClarificationSessionDocument,
+  type ClarificationState,
+} from './clarification-session.schema';

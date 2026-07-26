@@ -35,6 +35,7 @@ import { RagModule } from './retrieval/rag.module';
 import { JobModule } from './job/job.module';
 import { JobController } from './job/job.controller';
 import { AgentsModule } from './agents/agents.module';
+import { NluModule } from './nlu/nlu.module';
 
 @Module({
   imports: [
@@ -51,6 +52,8 @@ import { AgentsModule } from './agents/agents.module';
     EmbeddingModule,
     RagModule,
     JobModule,
+    // v2.3-W4 新增：NLU 域（EntityExtractor + ClarificationManager + CompoundIntentSplitter）
+    NluModule,
     // A4-W1 新增：Agent 域（AgentRegistry + 横切依赖）
     // A4-W2 扩展：7 核心 Agent 在此模块内注册
     // A4-W3 扩展：OrchestratorAgent 加入编排
@@ -58,6 +61,13 @@ import { AgentsModule } from './agents/agents.module';
   ],
   controllers: [ChatController, JobController],
   providers: [OrchestratorService],
-  exports: [OrchestratorService, IntentModule, RuleEngineModule, MemoryModule, AgentsModule],
+  exports: [
+    OrchestratorService,
+    IntentModule,
+    RuleEngineModule,
+    MemoryModule,
+    AgentsModule,
+    NluModule,
+  ],
 })
 export class LegalModule {}

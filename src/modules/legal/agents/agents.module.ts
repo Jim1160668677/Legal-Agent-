@@ -43,6 +43,7 @@ import { IntentModule } from '../intent/intent.module';
 import { DocumentModule } from '../document/document.module';
 import { ExportModule } from '../export/export.module';
 import { ToolModule } from '../../../services/legal/tools/tool.module';
+import { NluModule } from '../nlu/nlu.module';
 import { AgentRegistry } from './registry';
 import { LawLookupAgent } from './law-lookup.agent';
 import { LegalQaAgent } from './legal-qa.agent';
@@ -53,7 +54,8 @@ import { CaseAnalysisAgent } from './case-analysis.agent';
 import { MemoryAgent } from './memory.agent';
 import { OrchestratorAgent } from './orchestrator.agent';
 import { ToolAgent } from './tool.agent';
-import { NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.agent';
+import { NluAgent } from './nlu.agent';
+import { ReasoningAgent, LawyerReviewAgent } from './stub.agent';
 
 @Module({
   imports: [
@@ -72,6 +74,8 @@ import { NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.agent';
     ExportModule,
     // v2.3-W1：工具域模块（8 个 LegalTool + ToolRegistry）
     ToolModule,
+    // v2.3-W4：NLU 域模块（EntityExtractor + ClarificationManager + CompoundIntentSplitter）
+    NluModule,
   ],
   providers: [
     AgentRegistry,
@@ -84,7 +88,7 @@ import { NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.agent';
     CaseAnalysisAgent,
     MemoryAgent,
     OrchestratorAgent,
-    // 1 工具 Agent（v2.3-W1 接入 ToolRegistry）+ 3 桩 Agent（v2.3 阶段八/九/十实现）
+    // 1 工具 Agent（v2.3-W1）+ 1 NLU Agent（v2.3-W4 接入 NluModule）+ 2 桩 Agent
     ToolAgent,
     NluAgent,
     ReasoningAgent,
@@ -110,7 +114,7 @@ export class AgentsModule implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    // 统一注册 12 Agent（8 完整 + 4 桩，A4 验收 #1）
+    // 统一注册 12 Agent（8 完整 + 1 工具 + 1 NLU + 2 桩，A4 验收 #1）
     // 顺序：先注册叶子 agent，再注册桩 agent，最后注册编排器
     this.registry.register(this.lawLookup);
     this.registry.register(this.legalQa);
@@ -119,7 +123,7 @@ export class AgentsModule implements OnModuleInit {
     this.registry.register(this.document);
     this.registry.register(this.caseAnalysis);
     this.registry.register(this.memory);
-    // 1 工具 Agent + 3 桩 Agent（card 注册完整；ToolAgent 已接入 ToolRegistry，3 桩 execute 返回 NOT_IMPLEMENTED 7005）
+    // 1 工具 Agent（ToolRegistry）+ 1 NLU Agent（NluModule 三服务）+ 2 桩 Agent
     this.registry.register(this.tool);
     this.registry.register(this.nlu);
     this.registry.register(this.reasoning);
