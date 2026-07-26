@@ -29,6 +29,7 @@ import { ChatController } from './chat/chat.controller';
 import { LlmModule } from './llm/llm.module';
 import { DocumentModule } from './document/document.module';
 import { KnowledgeBaseModule } from './knowledge/knowledge-base.module';
+import { CitationGraphModule } from './knowledge/citation-graph.module';
 import { EmbeddingModule } from './embedding/embedding.module';
 import { RagModule } from './retrieval/rag.module';
 import { JobModule } from './job/job.module';
@@ -45,6 +46,8 @@ import { AgentsModule } from './agents/agents.module';
     MemoryModule,
     DocumentModule,
     KnowledgeBaseModule,
+    // v2.3-W3 新增：法条引用图谱（CitationGraphBuilderService）
+    CitationGraphModule,
     EmbeddingModule,
     RagModule,
     JobModule,
