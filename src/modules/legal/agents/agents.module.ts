@@ -51,6 +51,7 @@ import { DocumentAgent } from './document.agent';
 import { CaseAnalysisAgent } from './case-analysis.agent';
 import { MemoryAgent } from './memory.agent';
 import { OrchestratorAgent } from './orchestrator.agent';
+import { ToolAgent, NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.agent';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { OrchestratorAgent } from './orchestrator.agent';
   ],
   providers: [
     AgentRegistry,
+    // 8 核心 Agent（A4-W2 + A4-W3）
     LawLookupAgent,
     LegalQaAgent,
     CaseSearchAgent,
@@ -78,6 +80,11 @@ import { OrchestratorAgent } from './orchestrator.agent';
     CaseAnalysisAgent,
     MemoryAgent,
     OrchestratorAgent,
+    // 4 桩 Agent（A4-W4，v2.3 阶段完整实现）
+    ToolAgent,
+    NluAgent,
+    ReasoningAgent,
+    LawyerReviewAgent,
   ],
   exports: [AgentRegistry, OrchestratorAgent],
 })
@@ -92,11 +99,15 @@ export class AgentsModule implements OnModuleInit {
     private readonly caseAnalysis: CaseAnalysisAgent,
     private readonly memory: MemoryAgent,
     private readonly orchestrator: OrchestratorAgent,
+    private readonly tool: ToolAgent,
+    private readonly nlu: NluAgent,
+    private readonly reasoning: ReasoningAgent,
+    private readonly lawyerReview: LawyerReviewAgent,
   ) {}
 
   onModuleInit(): void {
-    // 统一注册 8 核心 Agent（含 OrchestratorAgent 自身）
-    // 顺序：先注册叶子 agent，最后注册编排器
+    // 统一注册 12 Agent（8 完整 + 4 桩，A4 验收 #1）
+    // 顺序：先注册叶子 agent，再注册桩 agent，最后注册编排器
     this.registry.register(this.lawLookup);
     this.registry.register(this.legalQa);
     this.registry.register(this.caseSearch);
@@ -104,6 +115,12 @@ export class AgentsModule implements OnModuleInit {
     this.registry.register(this.document);
     this.registry.register(this.caseAnalysis);
     this.registry.register(this.memory);
+    // 4 桩 Agent（card 注册完整，execute 返回 NOT_IMPLEMENTED 7005）
+    this.registry.register(this.tool);
+    this.registry.register(this.nlu);
+    this.registry.register(this.reasoning);
+    this.registry.register(this.lawyerReview);
+    // 编排器最后注册（依赖前序 agent）
     this.registry.register(this.orchestrator);
   }
 }

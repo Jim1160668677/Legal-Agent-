@@ -98,18 +98,24 @@ export abstract class BaseAgent implements LegalAgent {
         });
       }
 
-      // ===== 5. 审计 + 日志（success）=====
-      this.logInvocation(ctx, input, 'success', startedAt, {
+      // ===== 5. 审计 + 日志（success / degraded）=====
+      // result.ok=true → success；result.ok=false → degraded（业务未命中/桩未实现/降级返回）
+      const invokeResult: AgentInvokeStatus = result.ok ? 'success' : 'degraded';
+      this.logInvocation(ctx, input, invokeResult, startedAt, {
         tokensIn: result.usage.tokensIn,
         tokensOut: result.usage.tokensOut,
         cacheHit: result.usage.cacheHit,
+        errorCode: result.errorCode,
+        errorMessage: result.errorMessage,
       });
       this.audit?.write('agent_invoke', {
         agentId,
         capability,
         callerAgentId: ctx.callerAgentId,
-        result: 'success',
+        result: invokeResult,
         durationMs: result.usage.durationMs,
+        errorCode: result.errorCode,
+        errorMessage: result.errorMessage,
       });
 
       return result;
