@@ -1,14 +1,17 @@
 /**
- * 4 桩 Agent（A4-W4，A4 §5.2 v2.3 Agent）。
+ * 3 桩 Agent（v2.3-W1 更新，A4 §5.2 v2.3 Agent）。
  *
- * A4 阶段仅注册 AgentCard + 返回 NOT_IMPLEMENTED（7005），
+ * v2.3-W1 变更：
+ *   - ToolAgent 已迁移至 tool.agent.ts，接入 ToolRegistry 实现 8 工具调度
+ *   - 本文件保留 3 桩：NluAgent / ReasoningAgent / LawyerReviewAgent
+ *
+ * 桩行为：返回 NOT_IMPLEMENTED（7005），
  * 完整逻辑后续 v2.3 阶段实现：
- *   - tool         → v2.3 阶段七（8 项工具：期间计算/赔偿/量刑/案由/法条效力…）
  *   - nlu          → v2.3 阶段八（nlu.extract / nlu.clarify）
  *   - reasoning    → v2.3 阶段九（case.reason / case.compare / law.apply_check，IRAC 推理）
  *   - lawyer-review → v2.3 阶段十（review.lawyer / review.score / review.compliance，L-Internal）
  *
- * 验收 #13：4 桩 Agent 返回 NotImplemented 但 card 注册正确。
+ * 验收 #13：3 桩 Agent 返回 NotImplemented 但 card 注册正确。
  *
  * 设计依据：A4 §5.2；A4 §十 验收 #13；A4 §十一 风险「桩 Agent 误调用」。
  */
@@ -44,60 +47,6 @@ abstract class StubAgentBase extends BaseAgent {
       errorCode: AGENT_ERROR_CODES.NOT_IMPLEMENTED,
       errorMessage: `Agent ${this.card.agentId} 未实现（v2.3 阶段完成）`,
     };
-  }
-}
-
-// ===== ToolAgent（v2.3 阶段七：8 项工具）=====
-
-const TOOL_CARD: AgentCard = {
-  agentId: 'tool',
-  name: '法律工具',
-  description: '法律工具调用（期间计算/赔偿计算/量刑/案由/法条效力等 8 项，v2.3 阶段七实现）',
-  version: '0.1.0',
-  capabilities: [
-    'tool.period_calculator',
-    'tool.compensation_calculator',
-    'tool.sentencing',
-    'tool.case_cause',
-    'tool.law_effectiveness',
-    'tool.law_search',
-    'tool.case_search',
-    'tool.fee_calculator',
-  ],
-  inputSchema: {
-    type: 'object',
-    properties: {
-      toolId: { type: 'string', description: '工具 ID' },
-      args: { type: 'object', description: '工具入参' },
-    },
-    required: ['toolId'],
-  },
-  outputSchema: {
-    type: 'object',
-    properties: {
-      result: { type: 'object', description: '工具计算结果' },
-      disclaimer: { type: 'string' },
-      lawRefs: { type: 'array' },
-      traceId: { type: 'string' },
-    },
-    required: ['disclaimer', 'lawRefs', 'traceId'],
-  },
-  piiLevel: 'L2',
-  exposure: 'L-Read',
-  async: false,
-  timeout: 5_000,
-};
-
-@Injectable()
-export class ToolAgent extends StubAgentBase {
-  readonly card = TOOL_CARD;
-
-  constructor(
-    @Optional() pii?: PiiService,
-    @Optional() audit?: AuditLogService,
-    @Optional() logger?: AppLoggerService,
-  ) {
-    super(pii, audit, logger);
   }
 }
 

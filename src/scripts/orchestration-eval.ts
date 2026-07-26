@@ -139,13 +139,13 @@ function buildMockRegistry(): AgentRegistry {
   registry.register(
     makeMockStubAgent('tool', [
       'tool.period_calculator',
-      'tool.compensation_calculator',
-      'tool.sentencing',
-      'tool.case_cause',
-      'tool.law_effectiveness',
-      'tool.law_search',
-      'tool.case_search',
-      'tool.fee_calculator',
+      'tool.document_review',
+      'tool.compensation_query',
+      'tool.license_ocr',
+      'tool.law_validity',
+      'tool.cause_classification',
+      'tool.sentencing_guide',
+      'tool.clause_recommender',
     ]),
   );
   registry.register(makeMockStubAgent('nlu', ['nlu.extract', 'nlu.clarify']));

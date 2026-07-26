@@ -42,6 +42,7 @@ import { LlmModule } from '../llm/llm.module';
 import { IntentModule } from '../intent/intent.module';
 import { DocumentModule } from '../document/document.module';
 import { ExportModule } from '../export/export.module';
+import { ToolModule } from '../../../services/legal/tools/tool.module';
 import { AgentRegistry } from './registry';
 import { LawLookupAgent } from './law-lookup.agent';
 import { LegalQaAgent } from './legal-qa.agent';
@@ -51,7 +52,8 @@ import { DocumentAgent } from './document.agent';
 import { CaseAnalysisAgent } from './case-analysis.agent';
 import { MemoryAgent } from './memory.agent';
 import { OrchestratorAgent } from './orchestrator.agent';
-import { ToolAgent, NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.agent';
+import { ToolAgent } from './tool.agent';
+import { NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.agent';
 
 @Module({
   imports: [
@@ -68,6 +70,8 @@ import { ToolAgent, NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.a
     IntentModule,
     DocumentModule,
     ExportModule,
+    // v2.3-W1：工具域模块（8 个 LegalTool + ToolRegistry）
+    ToolModule,
   ],
   providers: [
     AgentRegistry,
@@ -80,7 +84,7 @@ import { ToolAgent, NluAgent, ReasoningAgent, LawyerReviewAgent } from './stub.a
     CaseAnalysisAgent,
     MemoryAgent,
     OrchestratorAgent,
-    // 4 桩 Agent（A4-W4，v2.3 阶段完整实现）
+    // 1 工具 Agent（v2.3-W1 接入 ToolRegistry）+ 3 桩 Agent（v2.3 阶段八/九/十实现）
     ToolAgent,
     NluAgent,
     ReasoningAgent,
@@ -115,7 +119,7 @@ export class AgentsModule implements OnModuleInit {
     this.registry.register(this.document);
     this.registry.register(this.caseAnalysis);
     this.registry.register(this.memory);
-    // 4 桩 Agent（card 注册完整，execute 返回 NOT_IMPLEMENTED 7005）
+    // 1 工具 Agent + 3 桩 Agent（card 注册完整；ToolAgent 已接入 ToolRegistry，3 桩 execute 返回 NOT_IMPLEMENTED 7005）
     this.registry.register(this.tool);
     this.registry.register(this.nlu);
     this.registry.register(this.reasoning);
