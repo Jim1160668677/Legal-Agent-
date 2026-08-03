@@ -31,6 +31,8 @@ function makeRecordService() {
     findByUser: vi.fn(),
     updateExport: vi.fn(),
     deleteByDocId: vi.fn(),
+    // assertOwner 默认放行（所有者/admin），非所有者场景由具体用例 mockRejectedValue
+    assertOwner: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -137,15 +139,17 @@ describe('DocumentController', () => {
       });
       const result = await controller.getDoc('d1', mockUser as never);
       expect(result.docId).toBe('d1');
+      // 越权校验前置：assertOwner 被调用
+      expect(recordService.assertOwner).toHaveBeenCalledWith('d1', 'u1', false);
     });
 
-    it('非所有者抛 NotFoundException(2002)', async () => {
-      recordService.findByDocId.mockResolvedValueOnce({
-        docId: 'd1',
-        userId: 'u2',
-        templateCode: 't1',
-      });
+    it('非所有者抛 NotFoundException(2002)，且不触发 findByDocId 解密', async () => {
+      recordService.assertOwner.mockRejectedValueOnce(
+        new NotFoundException({ code: 2002, message: '文书不存在: d1' }),
+      );
       await expect(controller.getDoc('d1', mockUser as never)).rejects.toThrow(NotFoundException);
+      // 越权拦截后不应解密 varsFilled
+      expect(recordService.findByDocId).not.toHaveBeenCalled();
     });
 
     it('admin 可查他人文书', async () => {
@@ -156,6 +160,8 @@ describe('DocumentController', () => {
       });
       const result = await controller.getDoc('d1', mockAdmin as never);
       expect(result.docId).toBe('d1');
+      // admin 传入 isAdmin=true
+      expect(recordService.assertOwner).toHaveBeenCalledWith('d1', 'admin1', true);
     });
   });
 
@@ -215,15 +221,14 @@ describe('DocumentController', () => {
       expect(result.format).toBe('pdf');
     });
 
-    it('非所有者抛 NotFoundException', async () => {
-      recordService.findByDocId.mockResolvedValueOnce({
-        docId: 'd1',
-        userId: 'u2',
-        renderedText: '正文',
-      });
+    it('非所有者抛 NotFoundException，且不触发 findByDocId 解密', async () => {
+      recordService.assertOwner.mockRejectedValueOnce(
+        new NotFoundException({ code: 2002, message: '文书不存在: d1' }),
+      );
       await expect(
         controller.exportDoc('d1', mockUser as never, { format: 'docx' }),
       ).rejects.toThrow(NotFoundException);
+      expect(recordService.findByDocId).not.toHaveBeenCalled();
     });
   });
 

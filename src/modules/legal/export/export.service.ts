@@ -20,11 +20,11 @@
  */
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { OBJECT_STORAGE_TOKEN } from '../../../infra/storage/object-storage.interface';
-import type { ObjectStorage } from '../../../infra/storage/object-storage.interface';
+import { ObjectStorage } from '../../../infra/storage/object-storage.interface';
 import { buildDocx, DOCX_CONTENT_TYPE } from '../../../infra/export/docx-builder';
 import { buildPdf, PDF_CONTENT_TYPE } from '../../../infra/export/pdf-builder';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 
 /** 导出格式 */
 export type ExportFormat = 'docx' | 'pdf';

@@ -23,7 +23,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../../infra/redis/redis.module';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { LlmDegradedError } from './llm-errors';
 
 /** 熔断器参数（A3 §3.3） */

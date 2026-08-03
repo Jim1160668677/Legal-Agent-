@@ -16,10 +16,10 @@
  * 设计依据：A2 §4.2 混合检索 + RRF 融合；A2-W3 交付物。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { EmbeddingService } from '../embedding/embedding.service';
-import type { VectorStore } from '../embedding/vector-store';
-import type { KnowledgeBaseService } from '../knowledge/knowledge-base.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { EmbeddingService } from '../embedding/embedding.service';
+import { VectorStore } from '../embedding/vector-store';
+import { KnowledgeBaseService } from '../knowledge/knowledge-base.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { requestContext } from '../../../common/context/request-context';
 import { VECTOR_STORE_TOKEN } from '../embedding/embedding.types';
 import {
@@ -48,7 +48,11 @@ export class RagService {
     @Inject(VECTOR_STORE_TOKEN) @Optional() private readonly vectorStore?: VectorStore,
     @Optional() private readonly knowledgeBase?: KnowledgeBaseService,
     @Optional() private readonly logger?: AppLoggerService,
-    rrfConfig: RrfConfig = DEFAULT_RRF_CONFIG,
+    // rrfConfig 是带默认值的配置参数（interface 类型，tsc 编译后 design:paramtypes = Object）。
+    // 必须加 @Optional() 让 NestJS DI 跳过解析，使用默认值 DEFAULT_RRF_CONFIG；
+    // 否则 prod 模式（tsc 编译）下 DI 抛 "can't resolve dependencies of RagService (..., ?)"。
+    // 详见 project_memory §6 + Phase 2.10 docker prod 验证。
+    @Optional() rrfConfig: RrfConfig = DEFAULT_RRF_CONFIG,
   ) {
     this.rrfConfig = rrfConfig;
   }

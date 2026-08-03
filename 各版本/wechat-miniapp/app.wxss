@@ -1,0 +1,153 @@
+/* 全局样式 */
+
+/* CSS 变量 */
+:root {
+  --primary-color: #1890ff;
+  --primary-light: #e6f7ff;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-placeholder: #999999;
+  --bg-color: #f5f5f5;
+  --bg-white: #ffffff;
+  --border-color: #e8e8e8;
+  --font-size-xs: 22rpx;
+  --font-size-sm: 24rpx;
+  --font-size-md: 28rpx;
+  --font-size-lg: 32rpx;
+  --font-size-xl: 36rpx;
+  --spacing-xs: 8rpx;
+  --spacing-sm: 16rpx;
+  --spacing-md: 24rpx;
+  --spacing-lg: 32rpx;
+}
+
+/* 重置样式 */
+page {
+  background-color: var(--bg-color);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+/* 通用布局 */
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+/* 按钮样式 */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 40rpx;
+  border-radius: 8rpx;
+  font-size: var(--font-size-md);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.btn-primary:active {
+  background-color: #40a9ff;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* 输入框样式 */
+.input {
+  padding: 20rpx 24rpx;
+  border: 1rpx solid var(--border-color);
+  border-radius: 8rpx;
+  font-size: var(--font-size-md);
+  background-color: var(--bg-white);
+}
+
+.input:focus {
+  border-color: var(--primary-color);
+}
+
+/* 卡片样式 */
+.card {
+  background-color: var(--bg-white);
+  border-radius: 12rpx;
+  padding: var(--spacing-md);
+  margin: var(--spacing-md);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background-color: var(--border-color);
+  margin: var(--spacing-md) 0;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 40rpx;
+  color: var(--text-placeholder);
+}
+
+.empty-state .icon {
+  font-size: 120rpx;
+  margin-bottom: var(--spacing-md);
+}
+
+.empty-state .text {
+  font-size: var(--font-size-md);
+}
+
+/* 加载状态 */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+  color: var(--text-placeholder);
+  font-size: var(--font-size-sm);
+}
+
+/* 文本省略 */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-primary {
+  color: var(--primary-color);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}

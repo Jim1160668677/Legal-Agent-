@@ -2,7 +2,7 @@
  * Agnes 集成测试夹具。
  *
  * 所有集成测试调用真实 Agnes API（消耗少量 tokens）。
- * 通过 AGNES_API_KEY 是否存在决定是否跳过；测试默认使用宽松超时。
+ * 通过 AGNES_API_KEY 是否存在 + 网络连通性预检决定是否跳过；测试默认使用宽松超时。
  */
 
 import { getConfig, resetConfigCache } from '../../src/config';
@@ -17,15 +17,80 @@ export function hasAgnesKey(): boolean {
   return !!k && !k.startsWith('sk-xxx') && k.trim() !== '';
 }
 
+/**
+ * Agnes API 连通性预检（带 globalThis 缓存）。
+ *
+ * 向 Agnes API /v1/models 发送 GET 请求，任何 HTTP 响应（包括 401）都表示服务器可达。
+ * 超时或 DNS 解析失败返回 false，集成测试将整体跳过而非逐个超时失败。
+ *
+ * 缓存策略：结果写入 globalThis，跨测试文件共享（vitest fileParallelism=false 同进程顺序执行）。
+ * 首次调用耗时 < 5s，后续调用 O(1)。
+ *
+ * 修复背景：DNS 异常时 apihub.agnes-ai.com 被解析到错误 IP（如 Twitter IP），
+ * 导致 21 个集成测试逐个等待 10s 连接超时后才失败。预检 + skip 避免浪费时间。
+ */
+export async function probeAgnesConnectivity(timeoutMs = 5_000): Promise<boolean> {
+  const cacheKey = '__agnesConnectivityProbe';
+  const cached = (globalThis as Record<string, unknown>)[cacheKey];
+  if (cached !== undefined) return cached as boolean;
+
+  const baseURL = process.env.AGNES_BASE_URL ?? 'https://apihub.agnes-ai.com/v1';
+  const probeURL = baseURL.replace(/\/v1\/?$/, '') + '/v1/models';
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const resp = await fetch(probeURL, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${process.env.AGNES_API_KEY ?? ''}` },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    // 任何 HTTP 响应（含 401/403）都说明服务器可达
+    const reachable = resp.status > 0;
+    (globalThis as Record<string, unknown>)[cacheKey] = reachable;
+    if (!reachable) {
+      console.warn(`[agnesFixture] Agnes API 连通性预检失败：HTTP ${resp.status}`);
+    }
+    return reachable;
+  } catch (err) {
+    (globalThis as Record<string, unknown>)[cacheKey] = false;
+    console.warn(
+      `[agnesFixture] Agnes API 连通性预检失败（网络不可达）：${err instanceof Error ? err.message : String(err)}`,
+    );
+    return false;
+  }
+}
+
+/**
+ * 一站式预检：API key 存在 && 网络可达。
+ * 供集成测试文件 top-level await 调用，配合 describe.skipIf 使用。
+ *
+ * @example
+ * const agnesReady = await ensureAgnesReady();
+ * describe.skipIf(!agnesReady)('Agnes 集成测试', () => { ... });
+ */
+export async function ensureAgnesReady(): Promise<boolean> {
+  if (!hasAgnesKey()) return false;
+  return probeAgnesConnectivity();
+}
+
 /** 用真实配置创建 LlmService（agnes active） */
 export function createAgnesService(): Service {
   resetConfigCache();
-  return new LlmServiceImpl(createDefaultRegistry(getConfig()));
+  const cfg = getConfig();
+  // agnes 测试夹具强制 agnes provider（.env 可能 LLM_PROVIDER=zhipu，但 registry 仅注册 agnes+qwen）
+  return new LlmServiceImpl(
+    createDefaultRegistry({ ...cfg, llm: { ...cfg.llm, provider: 'agnes' } }),
+  );
 }
 
 /** 用自定义 cfg 创建 LlmService（用于错误场景测试） */
 export function createServiceWithConfig(cfg: AppConfig): Service {
-  return new LlmServiceImpl(createDefaultRegistry(cfg));
+  // 同上：强制 agnes provider，避免 .env 的 zhipu 导致 createDefaultRegistry 注册失败
+  return new LlmServiceImpl(
+    createDefaultRegistry({ ...cfg, llm: { ...cfg.llm, provider: 'agnes' } }),
+  );
 }
 
 /** 从当前配置派生一份可修改的副本 */

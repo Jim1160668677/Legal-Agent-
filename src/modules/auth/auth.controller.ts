@@ -10,18 +10,34 @@
  * 安全注意：A1 阶段密码/验证码占位，生产环境应在调用 service 前校验短信验证码。
  */
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import type { AuthService } from './auth.service';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { AuthService } from './auth.service';
 import type { ExternalProvider, UserRole } from './auth.types';
 
 class LoginDto {
+  @IsString()
+  @IsNotEmpty()
   provider!: ExternalProvider;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(64)
   externalId!: string;
+
   /** A1 占位字段；生产环境由前置中间件校验短信验证码后剥离 */
+  @IsString()
+  @IsOptional()
+  @MaxLength(32)
   code?: string;
+
+  @IsString()
+  @IsOptional()
   role?: UserRole;
 }
 
 class RefreshDto {
+  @IsString()
+  @IsNotEmpty()
   refreshToken!: string;
 }
 

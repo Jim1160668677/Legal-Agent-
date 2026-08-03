@@ -18,8 +18,8 @@
  */
 import { Injectable, Optional } from '@nestjs/common';
 import type { IntentType, RouteTarget } from '../../../types/intent';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
-import type { IntentRouterService } from '../intent/intent-router.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
+import { IntentRouterService } from '../intent/intent-router.service';
 import { isPronoun } from '../../../data/legalTerms';
 import type { CompoundSplitResult, Entity, NluContext, SubIntent } from './nlu.types';
 

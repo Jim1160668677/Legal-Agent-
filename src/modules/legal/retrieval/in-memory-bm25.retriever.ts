@@ -16,14 +16,14 @@
 import { Injectable, Optional } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import {
   LawArticle,
   type LawArticleDocument,
   CasePrecedent,
   type CasePrecedentDocument,
 } from '../../../infra/database/schemas/legal.schema';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { tokenize, termFrequencies } from './bm25.tokenizer';
 import type { Retriever, RetrievalResult, Bm25Document } from './retrieval.types';
 

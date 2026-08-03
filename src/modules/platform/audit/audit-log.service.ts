@@ -14,10 +14,10 @@
  */
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import { AuditLog, type AuditLogDocument } from '../../../infra/database/schemas/dialog.schema';
 import { requestContext } from '../../../common/context/request-context';
-import type { AppLoggerService } from '../logger/logger.service';
+import { AppLoggerService } from '../logger/logger.service';
 
 /** 审计事件类型（扩展自 06 错误码体系相关业务事件） */
 export type AuditEvent =
@@ -33,7 +33,13 @@ export type AuditEvent =
   | 'document_export'
   | 'knowledge_update'
   | 'feature_flag_change'
-  | 'admin_operation';
+  | 'admin_operation'
+  // v2.3 阶段十：律师审核评估闭环审计事件（17 §9）
+  | 'lawyer_review_submit'
+  | 'answer_scored'
+  | 'annotation_reflowed'
+  // v2.4：视觉模型调用审计（图像识别多模型主备切换）
+  | 'vision_call';
 
 export interface AuditWriteOptions {
   /** 覆盖 traceId（默认从 RequestContext 取） */

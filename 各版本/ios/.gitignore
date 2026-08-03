@@ -1,0 +1,87 @@
+# Swift Package Manager
+/.build/
+/Packages/
+Package.swift
+
+# CocoaPods
+Pods/
+podfile.lock
+
+# Carthage
+Carthage/
+Build/
+
+# Xcode
+## ignore proposed xcode state
+*.xcworkspace/xcuserdata/
+## ignore derived data
+DerivedData/
+## xcode backup
+*.pbxproj.xccheckout
+*.xcuserdata
+## xcode report
+*.xcscmblueprint
+*.xcscmblueprint.md
+## xcode derived
+*.xcactivitylog
+## xcode workspace state
+xcuserdata/
+## code sign
+*.p12
+*.cer
+*.mobileprovision
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# SwiftLint
+.swiftlint.yml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# CocoaPods
+Pods/
+*.xcframework/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/output/
+
+# Code Coverage
+coverage/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+xcshareddata/
+DerivedData/
+*.pbxproj.user
+
+# Debug
+*.dSYM/
+*.orig.*
+
+# Swift Package Manager cache
+.build/
+.build/package.pins
+
+# Node (if using Swift with Node)
+node_modules/
+npm-debug.log

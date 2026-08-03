@@ -1,0 +1,9 @@
+﻿﻿{
+  "modelVersion": "5.0.0",
+  "name": "legal-agent-harmonyos",
+  "version": "1.0.0",
+  "description": "法律智能体 - 鸿蒙原生应用",
+  "author": "Sapiens AI",
+  "license": "MIT",
+  "dependencies": {}
+}

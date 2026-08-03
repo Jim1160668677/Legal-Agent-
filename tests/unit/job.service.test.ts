@@ -9,7 +9,7 @@
  *   - runJob：状态机 pending→running→completed；result 填充
  *   - runJob 失败：状态置为 failed + errorMessage
  *   - runJob 幂等：已完成任务直接返回结果
- *   - PiiService 未注入时降级明文
+ *   - PiiService 强制注入：未注入时 create 抛错（拒绝明文降级）
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
@@ -66,15 +66,11 @@ describe('JobService', () => {
       );
     });
 
-    it('PiiService 未注入时降级明文', async () => {
+    it('PiiService 未注入时拒绝明文降级（抛错，不静默写入明文）', async () => {
       const devSvc = new JobService(model as never, undefined, logger as never);
-      await devSvc.create('document_generate', { a: 1 }, 'u1');
-      expect(model.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          params: JSON.stringify({ a: 1 }),
-        }),
-      );
-      expect(logger.warn).toHaveBeenCalled();
+      await expect(devSvc.create('document_generate', { a: 1 }, 'u1')).rejects.toThrow();
+      // 明文降级路径已移除：不应写入数据库
+      expect(model.create).not.toHaveBeenCalled();
     });
   });
 

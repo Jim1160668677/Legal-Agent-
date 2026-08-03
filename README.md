@@ -1,4 +1,106 @@
-# legal-agent — Agnes 大模型接入集成
+# legal-agent — NestJS 法律 AI 服务
+
+NestJS 10 + TypeScript 5.4 + MongoDB + Redis 构建的法律 AI 后端服务。包含 12 个 Agent（意图路由 + 混合检索 + 文书生成 + 律师审核闭环）、8 个法律工具、PII 保护、审计日志、SSE 流式响应，1037 项测试 + 6 套评测基线全部通过。
+
+## 项目特性
+
+- **12 Agent 编排**：意图路由（8 意图）→ 混合检索（BM25 + 向量 + 结构化 RRF 融合）→ 文书生成 + 律师审核闭环
+- **8 法律工具**：诉讼时效计算 / 赔偿查询 / 证照 OCR / 法条效力 / 案由分类 / 量刑指导 / 条款推荐 / 文书审查
+- **NLU 域**：实体抽取（4 层）+ 多轮澄清（状态机）+ 复合意图拆分（拓扑排序）
+- **法律推理**：事实比对 + 法条适用 + IRAC 推理链
+- **横切能力**：PII 边界 + 审计日志 + 熔断器 + L3 缓存 + 限流 + 优雅关停
+- **生产就绪**：Docker 三阶段构建 + SLB 双探针 + 17 项发布清单 + 回滚方案
+
+## 目录
+
+- [快速开始](#快速开始) — 5 步本地启动
+- [部署](#部署) — 生产部署完整流程见 [DEPLOYMENT.md](./DEPLOYMENT.md)
+- [API 文档](#api-文档) — 主要端点 + Swagger UI
+- [测试](#测试) — 单测 / 集成 / 6 套评测基线
+- [LlmService 模块（历史）](#llmservice-模块历史) — A1 阶段多供应商框架
+
+## 快速开始
+
+```powershell
+# 1. 启动基础设施（mongo + redis）
+docker compose up -d
+docker compose ps                            # 期望 mongo/redis 都 healthy
+
+# 2. 安装依赖
+npm install
+
+# 3. 配置 .env
+Copy-Item .env.example .env
+# 编辑 .env 填入 AGNES_API_KEY（从 https://platform.agnes-ai.com/settings/apiKeys 获取）
+
+# 4. 启动应用（开发模式，热重载）
+npm run start:dev
+# 期望日志：legal-agent NestJS service listening on :3000
+
+# 5. 验证
+curl http://localhost:3000/health            # {"code":0,"data":{"status":"ok"}}
+curl http://localhost:3000/health/ready      # {"code":0,"data":{"status":"ready","checks":{...}}}
+.\scripts\smoke-test.ps1                     # 全链路冒烟（health→login→chat→reviews→ready→404→agents）
+```
+
+## 部署
+
+生产部署（阿里云 ECS + 托管 MongoDB + Redis 云版 + SLB）完整流程见 [DEPLOYMENT.md](./DEPLOYMENT.md)，包含：
+
+- 11 项必填环境变量清单（含生产收紧项：`SWAGGER_ENABLED=false`、`CORS_ORIGINS=` 白名单、`PII_ENCRYPTION_KEY=` 32+ 字符）
+- Docker 三阶段构建（`docker build -t legal-agent .`，镜像 ~313MB，非 root 运行）
+- docker-compose 全栈编排（app + mongo + redis 一键起）
+- SLB 健康检查配置（`/health` liveness + `/health/ready` readiness）
+- 17 项发布清单 + 回滚方案 + 故障排查
+
+## API 文档
+
+启动应用后访问 Swagger UI：`http://localhost:3000/docs`（生产环境 `SWAGGER_ENABLED=false` 关闭）。
+
+主要端点：
+
+| 端点 | 方法 | 鉴权 | 说明 |
+|------|------|------|------|
+| `/v1/auth/login` | POST | 无 | 外部身份登录，签发 JWT |
+| `/v1/auth/refresh` | POST | JWT | refresh token 换新 access |
+| `/v1/chat` | POST | JWT | SSE 流式问答（12 Agent 编排） |
+| `/v1/agents` | GET | JWT | 列出对外可见的 AgentCard |
+| `/v1/documents/async` | POST | JWT | 异步文书生成（返回 jobId） |
+| `/v1/documents/:docId/export` | GET | JWT | 文书导出（docx/pdf） |
+| `/v1/reviews/queue` | GET | JWT | 律师审核任务队列 |
+| `/v1/answers/:msgId/trace` | GET | JWT | 答案溯源 |
+| `/health` | GET | 无 | liveness 探针 |
+| `/health/ready` | GET | 无 | readiness 探针（mongo+redis） |
+
+统一响应信封：`{ code: 0, message: 'ok', traceId, data }`（成功） / `{ code: <错误码>, message, traceId, data: null }`（失败）。
+
+## 测试
+
+```powershell
+npm test                  # 全量 1037 项（含集成，需 mongo+redis+AGNES_API_KEY）
+npm run test:unit         # 仅单测 1008 项（mock，无外部依赖，快）
+npm run test:agnes        # Agnes 集成 + E2E（真实 API）
+npm run test:report       # 全量 + JSON 报告（reports/test-results.json）
+```
+
+6 套评测基线（金标集 + 评测脚本，验证业务准确率）：
+
+```powershell
+npm run eval:intent           # 意图识别评测（≥ 97%）
+npm run eval:retrieval        # 检索评测（Recall@10 = 100%）
+npm run eval:document         # 文书评测
+npm run eval:orchestration    # 编排评测
+npm run eval:tool             # 8 法律工具评测（100%）
+npm run eval:lawyer-review    # 律师审核评测（62 题，100%）
+```
+
+> **swc-node vs tsx**：`eval:retrieval` 和 `eval:lawyer-review` 用 `node -r @swc-node/register`（依赖 `@Prop` 的 design:type metadata）；其余 eval 用 tsx。
+
+---
+
+## LlmService 模块（历史）
+
+> 以下为 A1 阶段 LlmService 多供应商框架的原始文档，保留作为历史参考。当前 LLM 层已演进为 [cached-llm.service.ts](./src/modules/legal/llm/cached-llm.service.ts) 包装器模式（L3 缓存 + 熔断 + 法条回写），透明替换 legacy LlmServiceImpl。
 
 legal-agent 项目的 LlmService 多供应商框架，已接入 Agnes 大模型（OpenAI 兼容协议）。含完整错误处理、超时控制、指数退避重试、SSE 流式解析、法条引用校验，附 105 项测试用例（单测 + 真实 API 集成测试 + E2E）。
 

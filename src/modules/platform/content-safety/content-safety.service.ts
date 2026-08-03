@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ContentSafetyService —— 内容安全门面（A1-W2）。
  *
  * 职责：
@@ -9,8 +9,9 @@
  * 设计依据：A1 §6.7；03 §4.4 违规审计；06 错误码 6002。
  */
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import type { ContentSafetyProvider, ContentSafetyResult } from './content-safety.types';
-import type { AuditLogService } from '../audit/audit-log.service';
+import { ContentSafetyProvider } from './content-safety.types';
+import type { ContentSafetyResult } from './content-safety.types';
+import { AuditLogService } from '../audit/audit-log.service';
 
 export const CONTENT_SAFETY_PROVIDER = Symbol('CONTENT_SAFETY_PROVIDER');
 

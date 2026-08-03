@@ -22,11 +22,12 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { BaseAgent } from './base.agent';
 import type { AgentCard, AgentContext, AgentInvokeInput, AgentInvokeOutput } from './types';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
-import type { RagService } from '../retrieval/rag.service';
-import type { LlmService, ChatMessage, LawRef } from '../../../types/llm';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
+import { RagService } from '../retrieval/rag.service';
+import { LlmService } from '../../../types/llm';
+import type { ChatMessage, LawRef } from '../../../types/llm';
 import { LLM_SERVICE_TOKEN } from '../intent/intent-router.service';
 import { DISCLAIMER_TEXT } from '../chat/sse-frames';
 

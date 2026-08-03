@@ -11,12 +11,13 @@
  */
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable, SetMetadata } from '@nestjs/common';
-import type { Reflector } from '@nestjs/core';
-import type { AuthService } from './auth.service';
+import { Reflector } from '@nestjs/core';
+import { AuthService } from './auth.service';
 import type { JwtPayload, UserRole } from './auth.types';
 
 export const ROLES_KEY = 'roles';
-export const Roles = (...roles: UserRole[]): MethodDecorator | ClassDecorator =>
+// 返回交叉类型（MethodDecorator & ClassDecorator），使 @Roles 可同时用于类与方法装饰器位置
+export const Roles = (...roles: UserRole[]): MethodDecorator & ClassDecorator =>
   SetMetadata(ROLES_KEY, roles);
 
 @Injectable()

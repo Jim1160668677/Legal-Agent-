@@ -1,0 +1,40 @@
+# legal-agent Docker 构建排除清单（Phase 2.8 / A5）
+# 目标：减小构建上下文体积 + 避免敏感文件进入镜像
+
+# 依赖与构建产物（容器内重新生成）
+node_modules
+dist
+coverage
+reports
+
+# 环境变量与密钥（绝不进镜像）
+.env
+.env.*
+!.env.example
+
+# 版本控制与 IDE
+.git
+.github
+.vscode
+.idea
+.trae
+
+# 测试与文档（运行时不需要）
+tests
+docs
+*.md
+!README.md
+
+# 配置文件（运行时不需要）
+Dockerfile
+.dockerignore
+docker-compose.yml
+.gitignore
+.prettierignore
+.prettierrc.json
+eslint.config.mjs
+vitest.config.ts
+
+# 日志与临时文件
+*.log
+tmp

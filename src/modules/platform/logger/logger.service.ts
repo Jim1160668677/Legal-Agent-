@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LoggerService —— 结构化 JSON 日志（A1-W2）。
  *
  * 包装 nestjs-pino 注入的 PinoLogger，统一字段对齐 02 §8.1：
@@ -11,7 +11,7 @@
  */
 import type { LoggerService as NestLoggerService } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
-import type { PinoLogger } from 'nestjs-pino';
+import { PinoLogger } from 'nestjs-pino';
 import { requestContext } from '../../../common/context/request-context';
 
 export interface LogMeta {

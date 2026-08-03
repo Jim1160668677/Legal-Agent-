@@ -1,0 +1,61 @@
+<!--pages/knowledge/knowledge.wxml-->
+<view class="knowledge-container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input-wrapper">
+      <text class="search-icon">🔍</text>
+      <input
+        class="search-input"
+        type="text"
+        placeholder="搜索法律知识..."
+        value="{{searchQuery}}"
+        bindinput="onSearchInput"
+        bindconfirm="onSearch"
+      />
+      <text class="clear-btn" wx:if="{{searchQuery}}" bindtap="clearSearch">×</text>
+    </view>
+    <button class="search-btn" loading="{{loading}}" disabled="{{loading}}" bindtap="onSearch">搜索</button>
+  </view>
+
+  <!-- 分类筛选 -->
+  <view class="category-bar">
+    <scroll-view class="category-scroll" scroll-x>
+      <view class="category-item {{activeCategory === item.value ? 'active' : ''}}"
+            wx:for="{{categories}}"
+            wx:key="value"
+            bindtap="selectCategory"
+            data-value="{{item.value}}">
+        <text>{{item.name}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 搜索结果 -->
+  <scroll-view class="result-list" scroll-y bindscrolltolower="loadMore" lower-threshold="100">
+    <view wx:if="{{results.length === 0 && !loading && hasSearched}}" class="empty-state">
+      <text class="empty-icon">📚</text>
+      <text class="empty-text">暂无搜索结果</text>
+    </view>
+
+    <view wx:if="{{results.length === 0 && !loading && !hasSearched}}" class="empty-state">
+      <text class="empty-icon">⚖️</text>
+      <text class="empty-text">输入关键词搜索法律知识</text>
+    </view>
+
+    <view class="result-item" wx:for="{{results}}" wx:key="id" bindtap="viewDetail" data-id="{{item.id}}">
+      <view class="result-header">
+        <text class="result-title">{{item.title}}</text>
+        <text class="result-category">{{item.category}}</text>
+      </view>
+      <text class="result-content">{{item.content}}</text>
+      <view class="result-footer">
+        <text class="result-source">{{item.source}}</text>
+        <text class="result-score">相似度: {{item.score | toPercent}}</text>
+      </view>
+    </view>
+
+    <view class="loading" wx:if="{{loading}}">
+      <text>加载中...</text>
+    </view>
+  </scroll-view>
+</view>

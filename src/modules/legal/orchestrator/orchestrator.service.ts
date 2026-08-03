@@ -17,19 +17,20 @@
  * 设计依据：07 §1.4；A1 §十；06 §八 OrchestratorAgent（A4 前置编排雏形）。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { LlmService, ChatMessage, LawRef } from '../../../types/llm';
+import { LlmService } from '../../../types/llm';
+import type { ChatMessage, LawRef } from '../../../types/llm';
 import type { IntentType, RouteTarget } from '../../../types/intent';
 import type { DialogContext } from '../../../types/dialog';
 import { requestContext } from '../../../common/context/request-context';
-import type { IntentRouterService } from '../intent/intent-router.service';
+import { IntentRouterService } from '../intent/intent-router.service';
 import { LLM_SERVICE_TOKEN } from '../intent/intent-router.service';
-import type { RuleEngineService } from '../rule/rule-engine.service';
-import type { MemoryManagerService } from '../memory/memory-manager.service';
-import type { KnowledgeBaseService } from '../knowledge/knowledge-base.service';
+import { RuleEngineService } from '../rule/rule-engine.service';
+import { MemoryManagerService } from '../memory/memory-manager.service';
+import { KnowledgeBaseService } from '../knowledge/knowledge-base.service';
 import type { KnowledgeResult } from '../knowledge/knowledge.types';
 import { type MemoryEntry } from '../memory/memory-manager.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { DISCLAIMER_TEXT, type ChatFrame } from '../chat/sse-frames';
 
 /** LLM 不可用或失败时的人工引导文案（07 §1.4 最后一层） */

@@ -30,9 +30,10 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import type { JwtPayload } from '../../auth/auth.types';
 import type { DocumentGenerateDto } from './document-generator.service';
-import type { DocumentGeneratorService } from './document-generator.service';
-import type { DocumentRecordService } from './document-record.service';
-import type { ExportService, ExportFormat } from '../export/export.service';
+import { DocumentGeneratorService } from './document-generator.service';
+import { DocumentRecordService } from './document-record.service';
+import { ExportService } from '../export/export.service';
+import type { ExportFormat } from '../export/export.service';
 
 @Controller('v1/documents')
 @UseGuards(JwtAuthGuard)
@@ -85,15 +86,9 @@ export class DocumentController {
   /** 查询文书详情（解密 varsFilled） */
   @Get(':docId')
   async getDoc(@Param('docId') docId: string, @CurrentUser() user: JwtPayload) {
-    const doc = await this.recordService.findByDocId(docId);
-    // 越权校验：仅文书所有者可查看
-    if (doc.userId !== user.sub && user.role !== 'admin') {
-      throw new NotFoundException({
-        code: 2002,
-        message: `文书不存在: ${docId}`,
-      });
-    }
-    return doc;
+    // 越权校验前置：仅查 userId，通过后才解密 varsFilled（避免越权场景下无谓 PII 解密）
+    await this.recordService.assertOwner(docId, user.sub, user.role === 'admin');
+    return this.recordService.findByDocId(docId);
   }
 
   /** 列出当前用户文书 */
@@ -118,10 +113,9 @@ export class DocumentController {
     @Body() body: { format?: ExportFormat; filename?: string },
   ) {
     const format: ExportFormat = body?.format === 'pdf' ? 'pdf' : 'docx';
+    // 越权校验前置：通过后再加载文书正文
+    await this.recordService.assertOwner(docId, user.sub, user.role === 'admin');
     const doc = await this.recordService.findByDocId(docId);
-    if (doc.userId !== user.sub && user.role !== 'admin') {
-      throw new NotFoundException({ code: 2002, message: `文书不存在: ${docId}` });
-    }
 
     const result =
       format === 'docx'
@@ -141,10 +135,9 @@ export class DocumentController {
     @CurrentUser() user: JwtPayload,
     @Query('expiresInSec') expiresInSec?: string,
   ) {
+    // 越权校验前置：通过后再加载文书详情
+    await this.recordService.assertOwner(docId, user.sub, user.role === 'admin');
     const doc = await this.recordService.findByDocId(docId);
-    if (doc.userId !== user.sub && user.role !== 'admin') {
-      throw new NotFoundException({ code: 2002, message: `文书不存在: ${docId}` });
-    }
     if (!doc.exportFileId) {
       throw new NotFoundException({
         code: 3004,

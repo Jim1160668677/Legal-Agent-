@@ -13,13 +13,13 @@
  * 设计依据：06 §八 RuleResult/RuleEngine；07 §2.6 法条引用校验；
  *           data/lawArticles.ts 内存快取；src/services/legal/llm/lawRefExtractor.ts。
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { LawRef } from '../../../types/llm';
 import { extractLawRefs } from '../../../services/legal/llm/lawRefExtractor';
 import { extractArticleNoInt, parseChineseNumeral } from './chinese-numeral';
 import { FAQ_ENTRIES, LAW_ARTICLES, type LawArticleData } from '../../../data/lawArticles';
 import { requestContext } from '../../../common/context/request-context';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 
 /** 规则层返回结果（06 §八 RuleResult） */
 export interface RuleResult {
@@ -53,7 +53,7 @@ export class RuleEngineService {
   /** 已知法律名集合（用于归一化 extractLawRefs 贪婪匹配出的法律名） */
   private readonly lawNames: Set<string>;
 
-  constructor(private readonly logger?: AppLoggerService) {
+  constructor(@Optional() private readonly logger?: AppLoggerService) {
     this.exactMap = new Map();
     this.keywordIndex = new Map();
     this.lawNames = new Set();

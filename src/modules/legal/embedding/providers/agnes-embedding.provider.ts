@@ -7,7 +7,8 @@
  * 设计依据：A2 §五 Embedding 接入；A1 http.ts 超时控制模式。
  */
 import { Injectable } from '@nestjs/common';
-import type { EmbeddingProvider, EmbeddingConfig } from '../embedding.types';
+import { EmbeddingConfig } from '../embedding.types';
+import type { EmbeddingProvider } from '../embedding.types';
 
 const EMBEDDING_TIMEOUT_MS = 30_000;
 

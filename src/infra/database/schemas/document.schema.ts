@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文书域 Mongoose Schema（A3-W3 新增，A3 §七）。
  *
  * 两个集合：
@@ -61,7 +61,8 @@ export class DocumentRecord {
   @Prop({ type: [String], default: [] }) lawRefs!: string[];
   /** 导出文件对象存储 key（首次导出后回填） */
   @Prop({ index: true }) exportFileId?: string;
-  @Prop() exportFormat?: 'docx' | 'pdf';
+  /** union type 用 string 存储（tsx 不支持 emitDecoratorMetadata，§8） */
+  @Prop() exportFormat?: string;
   /** 状态：generated / exported / archived（union type 用 string 存储） */
   @Prop({ default: 'generated' }) status!: string;
   @Prop({ default: Date.now, index: true }) createdAt!: Date;

@@ -5,7 +5,7 @@
  * MongooseModule.forFeature 注册 9 个集合 schema。
  * 设计依据：A1 §五。
  */
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import {
@@ -41,6 +41,7 @@ import {
   AgentInvocationLogSchema,
 } from './schemas';
 
+@Global()
 @Module({
   imports: [
     MongooseModule.forRootAsync({

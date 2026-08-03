@@ -13,7 +13,7 @@ import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import type { JwtPayload } from '../../auth/auth.types';
-import type { JobService } from './job.service';
+import { JobService } from './job.service';
 
 @Controller('v1/jobs')
 @UseGuards(JwtAuthGuard)

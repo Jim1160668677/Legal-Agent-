@@ -8,8 +8,10 @@
  */
 import { Module } from '@nestjs/common';
 import { KnowledgeBaseService } from './knowledge-base.service';
+import { KnowledgeController } from './knowledge.controller';
 
 @Module({
+  controllers: [KnowledgeController],
   providers: [KnowledgeBaseService],
   exports: [KnowledgeBaseService],
 })

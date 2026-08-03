@@ -7,7 +7,8 @@ import type { HydratedDocument } from 'mongoose';
 
 @Schema({ _id: false })
 class ExternalIdentity {
-  @Prop({ required: true }) provider!: 'phone' | 'wechat' | 'email';
+  /** union type 用 string 存储（tsx 不支持 emitDecoratorMetadata，§8） */
+  @Prop({ required: true }) provider!: string;
   @Prop({ required: true }) externalId!: string;
 }
 const ExternalIdentitySchema = SchemaFactory.createForClass(ExternalIdentity);

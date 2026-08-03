@@ -1,4 +1,4 @@
-export type LlmProviderName = 'agnes' | 'qwen';
+export type LlmProviderName = 'agnes' | 'qwen' | 'zhipu';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface ProviderConfig {
@@ -19,4 +19,5 @@ export interface AppConfig {
   llm: LlmRuntimeConfig;
   agnes: ProviderConfig;
   qwen: ProviderConfig;
+  zhipu: ProviderConfig;
 }

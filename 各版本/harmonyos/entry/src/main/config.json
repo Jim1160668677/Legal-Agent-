@@ -1,0 +1,97 @@
+﻿/**
+ * HarmonyOS鸿蒙原生应用 - 配置
+ */
+{
+  "app": {
+    "bundleName": "com.sapiensai.legalagent",
+    "vendor": "sapiensai",
+    "versionCode": 1000000,
+    "versionName": "1.0.0",
+    "icon": "$media:app_icon",
+    "label": "$string:app_name",
+    "debug": false,
+    "minAPIVersion": 9,
+    "targetAPIVersion": 11,
+    "apiReleaseType": "Release"
+  },
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": ["default", "tablet"],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": [
+      "pages/index/index",
+      "pages/chat/Chat",
+      "pages/analysis/Analysis",
+      "pages/knowledge/Knowledge",
+      "pages/profile/Profile"
+    ],
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:mainability_desc",
+        "icon": "$media:icon",
+        "label": "$string:mainability_label",
+        "startWindowIcon": "$media:splash",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "skills": [
+          {
+            "entities": ["entity.system.home"],
+            "actions": ["action.system.home"]
+          }
+        ]
+      }
+    ],
+    "permissions": [
+      {
+        "name": "ohos.permission.INTERNET",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "description": "用于访问网络API"
+        }
+      },
+      {
+        "name": "ohos.permission.USE_BIOMETRIC"
+      },
+      {
+        "name": "ohos.permission.CAMERA",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "description": "用于拍摄照片上传"
+        }
+      },
+      {
+        "name": "ohos.permission.READ_MEDIA",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "description": "用于读取相册图片"
+        }
+      }
+    ],
+    "metadata": [
+      {
+        "name": "ohos.multimodalinput.blekeyboardservice",
+        "value": "true"
+      }
+    ]
+  },
+  "buildOption": {
+    "sources": [
+      {
+        "name": "default",
+        "srcPath": "src/main"
+      }
+    ]
+  },
+  "deployments": [
+    {
+      "runtimeOS": "HarmonyOS",
+      "bundleType": "app"
+    }
+  ]
+}

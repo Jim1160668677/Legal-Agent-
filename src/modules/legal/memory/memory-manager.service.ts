@@ -12,7 +12,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import type { IntentType } from '../../../types/intent';
 import type { DialogTurn } from '../../../types/dialog';
 import {
@@ -21,7 +21,7 @@ import {
 } from '../../../infra/database/schemas/dialog.schema';
 import { UserProfile, type UserProfileDocument } from '../../../infra/database/schemas/user.schema';
 import { requestContext } from '../../../common/context/request-context';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 
 /** dialog_record lean 投影类型（仅取 getRecentTurns 所需字段） */
 interface DialogLean {

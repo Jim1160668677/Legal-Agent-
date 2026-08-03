@@ -35,7 +35,10 @@ import { RagModule } from './retrieval/rag.module';
 import { JobModule } from './job/job.module';
 import { JobController } from './job/job.controller';
 import { AgentsModule } from './agents/agents.module';
+import { AgentsController } from './agents/agents.controller';
 import { NluModule } from './nlu/nlu.module';
+import { ReasoningModule } from './reasoning/reasoning.module';
+import { VisionModule } from './vision/vision.module';
 
 @Module({
   imports: [
@@ -54,12 +57,16 @@ import { NluModule } from './nlu/nlu.module';
     JobModule,
     // v2.3-W4 新增：NLU 域（EntityExtractor + ClarificationManager + CompoundIntentSplitter）
     NluModule,
+    // v2.3-W5 新增：推理域（IracReasoner + FactSimilarity + LawApplicationDeterminer + CaseComparator）
+    ReasoningModule,
     // A4-W1 新增：Agent 域（AgentRegistry + 横切依赖）
     // A4-W2 扩展：7 核心 Agent 在此模块内注册
     // A4-W3 扩展：OrchestratorAgent 加入编排
     AgentsModule,
+    // v2.4：视觉模型（图像识别多模型主备切换）
+    VisionModule,
   ],
-  controllers: [ChatController, JobController],
+  controllers: [ChatController, JobController, AgentsController],
   providers: [OrchestratorService],
   exports: [
     OrchestratorService,
@@ -68,6 +75,7 @@ import { NluModule } from './nlu/nlu.module';
     MemoryModule,
     AgentsModule,
     NluModule,
+    ReasoningModule,
   ],
 })
 export class LegalModule {}

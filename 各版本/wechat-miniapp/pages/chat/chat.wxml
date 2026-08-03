@@ -1,0 +1,107 @@
+<!--pages/chat/chat.wxml-->
+<view class="chat-container">
+  <!-- 会话列表 -->
+  <view class="session-list" wx:if="{{!currentSession}}">
+    <view class="session-header">
+      <text class="session-title">对话历史</text>
+      <button class="new-chat-btn" bindtap="createNewChat">+ 新建对话</button>
+    </view>
+
+    <view class="session-list-content" scroll-y>
+      <view wx:if="{{sessions.length === 0 && !loading}}" class="empty-state">
+        <text class="empty-icon">💬</text>
+        <text class="empty-text">暂无对话记录</text>
+      </view>
+
+      <view class="session-item" wx:for="{{sessions}}" wx:key="id" bindtap="selectSession" data-id="{{item.id}}">
+        <view class="session-avatar">
+          <text>{{item.intent ? item.intent.substring(0, 1) : '💬'}}</text>
+        </view>
+        <view class="session-info">
+          <text class="session-intent">{{item.intent || '法律咨询'}}</text>
+          <text class="session-time">{{item.updatedAt}}</text>
+        </view>
+        <view class="session-delete" catchtap="deleteSession" data-id="{{item.id}}">
+          <text>×</text>
+        </view>
+      </view>
+
+      <view class="loading" wx:if="{{loading}}">
+        <text>加载中...</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 聊天界面 -->
+  <view class="chat-interface" wx:else>
+    <!-- 聊天头部 -->
+    <view class="chat-header">
+      <button class="back-btn" bindtap="backToList">←</button>
+      <text class="chat-title">{{currentSession?.intent || '法律智能体'}}</text>
+    </view>
+
+    <!-- 消息列表 -->
+    <scroll-view class="message-list" scroll-y scroll-into-view="{{scrollToId}}" bindscrolltolower="loadMoreMessages">
+      <view wx:if="{{messages.length === 0 && !loading}}" class="empty-chat">
+        <text class="empty-icon">⚖️</text>
+        <text class="empty-text">请输入您的法律问题，我将为您提供专业解答</text>
+      </view>
+
+      <view class="message-item user-message" wx:for="{{messages}}" wx:key="id" id="msg-{{item.id}}">
+        <view class="message-avatar user-avatar">
+          <text>👤</text>
+        </view>
+        <view class="message-content user-content">
+          <text class="message-text">{{item.content}}</text>
+          <text class="message-time">{{item.createdAt}}</text>
+        </view>
+      </view>
+
+      <view class="message-item ai-message" wx:for="{{messages}}" wx:key="id" wx:if="{{item.messageType === 'ai'}}" id="msg-{{item.id}}">
+        <view class="message-avatar ai-avatar">
+          <text>⚖️</text>
+        </view>
+        <view class="message-content ai-content">
+          <text class="message-text">{{item.content}}</text>
+          <text class="message-time">{{item.createdAt}}</text>
+        </view>
+      </view>
+
+      <view class="loading-message" wx:if="{{loading}}">
+        <view class="typing-indicator">
+          <text class="typing-dot"></text>
+          <text class="typing-dot"></text>
+          <text class="typing-dot"></text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 输入区域 -->
+    <view class="input-area">
+      <view class="input-tools">
+        <view class="tool-btn" bindtap="chooseImage">
+          <text>🖼️</text>
+        </view>
+      </view>
+      <view class="input-wrapper">
+        <textarea
+          class="message-input"
+          placeholder="输入您的法律问题..."
+          value="{{inputValue}}"
+          bindinput="onInputChange"
+          bindblur="onInputBlur"
+          auto-height
+          maxlength="2000"
+        />
+      </view>
+      <button
+        class="send-btn {{!inputValue.trim() || loading ? 'disabled' : ''}}"
+        loading="{{loading}}"
+        disabled="{{!inputValue.trim() || loading}}"
+        bindtap="sendMessage"
+      >
+        发送
+      </button>
+    </view>
+  </view>
+</view>

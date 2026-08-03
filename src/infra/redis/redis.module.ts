@@ -7,6 +7,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { AppLoggerService } from '../../modules/platform/logger/logger.service';
 
 export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
 
@@ -16,8 +17,8 @@ export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
   providers: [
     {
       provide: REDIS_CLIENT,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService): Redis => {
+      inject: [ConfigService, AppLoggerService],
+      useFactory: (config: ConfigService, logger: AppLoggerService): Redis => {
         const client = new Redis(config.get<string>('app.redis.url')!, {
           keyPrefix: config.get<string>('app.redis.keyPrefix')!,
           maxRetriesPerRequest: 3,
@@ -25,7 +26,9 @@ export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
           retryStrategy: (times: number) => Math.min(times * 200, 2000),
         });
         client.on('error', (err: Error) => {
-          console.error('[redis] error:', err.message);
+          logger.error(`Redis client error: ${err.message}`, {
+            traceId: 'redis-init',
+          });
         });
         return client;
       },

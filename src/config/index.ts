@@ -1,4 +1,4 @@
-﻿import dotenv from 'dotenv';
+import dotenv from 'dotenv';
 import { env } from './env';
 import type { AppConfig } from './types';
 
@@ -15,6 +15,7 @@ export function loadConfig(): AppConfig {
 
   const agnesApiKey = process.env.AGNES_API_KEY ?? '';
   const qwenApiKey = process.env.QWEN_API_KEY ?? '';
+  const zhipuApiKey = process.env.ZHIPU_API_KEY ?? '';
 
   if (provider === 'agnes' && (!agnesApiKey || agnesApiKey.startsWith('sk-xxx'))) {
     throw new Error(
@@ -24,6 +25,9 @@ export function loadConfig(): AppConfig {
   }
   if (provider === 'qwen' && (!qwenApiKey || qwenApiKey.trim() === '')) {
     throw new Error('QWEN_API_KEY is required when LLM_PROVIDER=qwen.');
+  }
+  if (provider === 'zhipu' && (!zhipuApiKey || zhipuApiKey.trim() === '')) {
+    throw new Error('ZHIPU_API_KEY is required when LLM_PROVIDER=zhipu.');
   }
 
   const cfg: AppConfig = {
@@ -43,6 +47,11 @@ export function loadConfig(): AppConfig {
       apiKey: qwenApiKey,
       baseURL: env.optional('QWEN_BASE_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1'),
       defaultModel: env.optional('QWEN_DEFAULT_MODEL', 'qwen-max'),
+    },
+    zhipu: {
+      apiKey: zhipuApiKey,
+      baseURL: env.optional('ZHIPU_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4'),
+      defaultModel: env.optional('ZHIPU_DEFAULT_MODEL', 'glm-4.7-flash'),
     },
   };
 

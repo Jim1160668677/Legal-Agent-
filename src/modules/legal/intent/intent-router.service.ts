@@ -22,7 +22,8 @@
  * 设计依据：07 §1.1-1.5；06 §八 IntentRouter 接口桩。
  */
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
-import type { LlmService, ChatMessage } from '../../../types/llm';
+import { LlmService } from '../../../types/llm';
+import type { ChatMessage } from '../../../types/llm';
 import type {
   IntentDef,
   IntentRanked,
@@ -33,7 +34,7 @@ import type {
 import type { DialogContext } from '../../../types/dialog';
 import { INTENT_DEFS } from '../../../data/legalIntents';
 import { requestContext } from '../../../common/context/request-context';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 
 /** LlmService 注入 token（A1-W4 迁移后由 LegalModule 提供；A1-W3 阶段可选） */
 export const LLM_SERVICE_TOKEN = 'LLM_SERVICE';

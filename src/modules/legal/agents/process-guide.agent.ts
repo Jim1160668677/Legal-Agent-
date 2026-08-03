@@ -22,10 +22,10 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { BaseAgent } from './base.agent';
 import type { AgentCard, AgentContext, AgentInvokeInput, AgentInvokeOutput } from './types';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
-import type { KnowledgeBaseService } from '../knowledge/knowledge-base.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
+import { KnowledgeBaseService } from '../knowledge/knowledge-base.service';
 import { DISCLAIMER_TEXT } from '../chat/sse-frames';
 
 const CARD: AgentCard = {

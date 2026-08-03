@@ -1,0 +1,90 @@
+# docker-compose.yml —— legal-agent 全栈一键编排（v2.3 阶段十 / Phase 4）。
+#
+# 启动：
+#   开发模式（仅基础设施）：docker compose up -d mongo redis
+#   全栈容器化（生产演练）：docker compose --profile prod up -d --build
+#
+# 停止：docker compose down
+# 查看日志：docker compose logs -f app
+#
+# 服务：
+#   mongo   : MongoDB 7.x（端口 27017，数据持久化到 legal-mongo-data 卷）
+#   redis   : Redis 7.x（端口 6379，数据持久化到 legal-redis-data 卷）
+#   app     : legal-agent NestJS 应用（profile=prod，端口 3000）
+#
+# 默认行为：仅启动 mongo + redis，应用走本地 npm run start:dev 便于热重载。
+# 生产演练时通过 --profile prod 启用 app 服务。
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: legal-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: legal
+      MONGO_INITDB_ROOT_PASSWORD: legal123
+      MONGO_INITDB_DATABASE: legal_agent
+    volumes:
+      - legal-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: legal-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - legal-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # legal-agent 应用容器（仅 --profile prod 时启动）
+  # 启动：docker compose --profile prod up -d --build
+  app:
+    image: legal-agent:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: legal-app
+    restart: unless-stopped
+    profiles: ["prod"]
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # 覆盖 .env 中指向 localhost 的连接串为容器网络内的服务名
+      MONGO_URI: mongodb://legal:legal123@mongo:27017/legal_agent?authSource=admin
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: prod
+      PORT: "3000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  legal-mongo-data:
+    name: legal-mongo-data
+  legal-redis-data:
+    name: legal-redis-data

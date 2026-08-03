@@ -7,7 +7,8 @@ import type { HydratedDocument } from 'mongoose';
 
 @Schema({ _id: false })
 class DialogMessage {
-  @Prop({ required: true }) role!: 'user' | 'assistant' | 'system';
+  /** union type 用 string 存储（tsx 不支持 emitDecoratorMetadata，§8） */
+  @Prop({ required: true }) role!: string;
   @Prop({ required: true }) content!: string;
   @Prop({ required: true }) ts!: Date;
   @Prop() traceId?: string;

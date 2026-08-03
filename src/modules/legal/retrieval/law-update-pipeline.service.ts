@@ -15,12 +15,12 @@
  * 设计依据：A2-W4 交付物；A1 CacheService.invalidateByLawArticle。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { CacheService } from '../../platform/cache/cache.service';
-import type { EmbeddingService } from '../embedding/embedding.service';
-import type { VectorStore } from '../embedding/vector-store';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { CacheService } from '../../platform/cache/cache.service';
+import { EmbeddingService } from '../embedding/embedding.service';
+import { VectorStore } from '../embedding/vector-store';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { VECTOR_STORE_TOKEN } from '../embedding/embedding.types';
-import type { InMemoryBm25Retriever } from './in-memory-bm25.retriever';
+import { InMemoryBm25Retriever } from './in-memory-bm25.retriever';
 
 /** 更新管道执行结果 */
 export interface PipelineResult {

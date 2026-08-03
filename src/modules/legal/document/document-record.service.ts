@@ -9,9 +9,8 @@
  *   5. deleteByDocId(docId)：删除记录（管理后台）
  *
  * 安全：
- *   - varsFilled 字段 L4 加密入库（PiiService.encrypt）
+ *   - varsFilled 字段 L4 加密入库（PiiService.encrypt，强制注入，无明文降级）
  *   - 查询返回时解密（PiiService.decrypt）
- *   - PiiService 注入失败时降级为 JSON.stringify（开发环境，记录 warn）
  *
  * 错误码（对齐 06-api-spec）：
  *   2002 文书不存在（NotFoundException）
@@ -20,13 +19,13 @@
  */
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import {
   DocumentRecord,
   type DocumentRecordDocument,
 } from '../../../infra/database/schemas/document.schema';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import type { LawRef } from '../../../types/llm';
 import type { ExportFormat } from '../export/export.service';
 
@@ -86,13 +85,14 @@ export interface ListResult {
 export class DocumentRecordService {
   constructor(
     @InjectModel(DocumentRecord.name) private readonly model: Model<DocumentRecordDocument>,
-    @Optional() private readonly pii?: PiiService,
+    // PiiService 强制注入（PiiModule 已在 DocumentModule 导入），杜绝 varsFilled 明文降级
+    private readonly pii: PiiService,
     @Optional() private readonly logger?: AppLoggerService,
   ) {}
 
   /** 创建文书记录（varsFilled L4 加密入库） */
   async create(input: CreateDocumentRecordInput): Promise<DocumentRecordDto> {
-    const encryptedVars = this.encryptVars(input.varsFilled, input.docId);
+    const encryptedVars = this.encryptVars(input.varsFilled);
     const now = new Date();
     const expireAt = new Date(now.getTime() + 365 * 24 * 3600 * 1000); // TTL 1 年
 
@@ -131,6 +131,28 @@ export class DocumentRecordService {
       });
     }
     return this.toDto(doc);
+  }
+
+  /**
+   * 校验文书所有者。非所有者抛 NotFoundException（避免泄露文书存在性）。
+   * 仅查询 userId 字段，不解密 varsFilled——避免越权场景下无谓的 PII 解密。
+   * 与 JobService.assertOwner 行为一致，统一越权校验入口。
+   */
+  async assertOwner(docId: string, userId: string, isAdmin = false): Promise<void> {
+    const doc = await this.model.findOne({ docId }).select({ userId: 1 }).lean().exec();
+    if (!doc) {
+      throw new NotFoundException({
+        code: DOC_RECORD_NOT_FOUND_CODE,
+        message: `文书不存在: ${docId}`,
+      });
+    }
+    if (!isAdmin && doc.userId !== userId) {
+      // 与 NotFoundException 行为一致，避免泄露文书存在性
+      throw new NotFoundException({
+        code: DOC_RECORD_NOT_FOUND_CODE,
+        message: `文书不存在: ${docId}`,
+      });
+    }
   }
 
   /** 按 userId 分页查询（列表，不含敏感字段） */
@@ -215,30 +237,13 @@ export class DocumentRecordService {
 
   // ===== 内部辅助 =====
 
-  /** 加密 varsFilled：序列化 JSON → PiiService.encrypt */
-  private encryptVars(vars: Record<string, unknown>, docId: string): string {
-    const json = JSON.stringify(vars);
-    if (!this.pii) {
-      // 开发环境降级：明文入库，记录 warn
-      this.logger?.warn(
-        'DocumentRecordService: PiiService 未注入，varsFilled 明文存储（仅开发环境）',
-        { docId },
-      );
-      return json;
-    }
-    return this.pii.encrypt(json);
+  /** 加密 varsFilled：序列化 JSON → PiiService.encrypt（无明文降级） */
+  private encryptVars(vars: Record<string, unknown>): string {
+    return this.pii.encrypt(JSON.stringify(vars));
   }
 
-  /** 解密 varsFilled */
+  /** 解密 varsFilled（解密失败返回空对象并记录错误，不外泄密文） */
   private decryptVars(encrypted: string, docId: string): Record<string, unknown> {
-    if (!this.pii) {
-      // 开发环境：尝试直接 JSON.parse（明文降级路径）
-      try {
-        return JSON.parse(encrypted) as Record<string, unknown>;
-      } catch {
-        return {};
-      }
-    }
     try {
       const json = this.pii.decrypt(encrypted);
       return JSON.parse(json) as Record<string, unknown>;

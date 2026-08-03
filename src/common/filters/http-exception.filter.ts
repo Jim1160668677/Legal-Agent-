@@ -42,7 +42,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         code = status * 10;
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
+      // 非 HttpException 的原生错误：不外泄内部 message（可能含连接串/堆栈/路径），统一返回"内部错误"，原始 stack 仅落日志
+      message = '内部错误';
     }
 
     const envelope: ErrorEnvelope = { code, message, traceId, data: null };
@@ -52,6 +53,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : undefined,
     );
 
+    // SSE 流式响应中发生异常时 headers 已发送，无法再发 HTTP 错误响应
+    if (res.headersSent) {
+      return;
+    }
     res.status(status).header('X-Trace-Id', traceId).json(envelope);
   }
 }

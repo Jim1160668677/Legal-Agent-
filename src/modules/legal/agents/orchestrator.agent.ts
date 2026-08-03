@@ -44,14 +44,14 @@ import type {
 } from './types';
 import { PLAN_BY_INTENT } from './agents.constants';
 import { AGENT_ERROR_CODES } from './types';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
-import type { IntentRouterService } from '../intent/intent-router.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
+import { IntentRouterService } from '../intent/intent-router.service';
 import type { IntentResult } from '../../../types/intent';
 import type { DialogContext } from '../../../types/dialog';
 import type { LawRef } from '../../../types/llm';
-import type { AgentRegistry } from './registry';
+import { AgentRegistry } from './registry';
 import { DISCLAIMER_TEXT } from '../chat/sse-frames';
 
 const CARD: AgentCard = {

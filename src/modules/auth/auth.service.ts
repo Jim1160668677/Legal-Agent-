@@ -15,15 +15,17 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { JwtService } from '@nestjs/jwt';
-import type { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import { createHash, randomUUID } from 'node:crypto';
 import type { ExternalProvider, JwtPayload, UserRole } from './auth.types';
 import { UserProfile, type UserProfileDocument } from '../../infra/database/schemas/user.schema';
+import { AuditLogService } from '../platform/audit/audit-log.service';
 
 /**
  * 把 '7d'/'30d'/'12h' 等时间字符串解析为秒数。
@@ -44,6 +46,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     @InjectModel(UserProfile.name) private readonly userModel: Model<UserProfileDocument>,
+    @Optional() private readonly audit?: AuditLogService,
   ) {}
 
   // ===== 登录 =====
@@ -73,6 +76,14 @@ export class AuthService {
     const userId = isNewUser ? await this.createExternalUser(provider, externalId) : existingUserId;
 
     const tokens = await this.issueTokens(userId, role);
+
+    // 登录审计（user_login 事件）
+    this.audit?.write(
+      'user_login',
+      { provider, isNewUser, role },
+      { userId, result: 'success', func: 'login' },
+    );
+
     return { ...tokens, isNewUser };
   }
 

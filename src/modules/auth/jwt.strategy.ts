@@ -1,4 +1,4 @@
-/**
+﻿/**
  * JwtStrategy —— passport-jwt 策略（A1-W2）。
  *
  * 从 Authorization: Bearer <token> 头提取 token，调 AuthService.verifyJwt 校验，
@@ -9,7 +9,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import type { JwtPayload } from './auth.types';
 
 interface JwtStrategyOptions {

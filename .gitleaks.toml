@@ -1,0 +1,29 @@
+# gitleaks 配置 —— legal-agent 项目
+#
+# 继承默认规则，并允许 .env.example 中的占位符密钥（sk-xxxxxxxx 不会被误报）。
+# 文档：https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+# 全局允许列表：占位符与示例 key 不会触发告警
+[allowlist]
+description = "允许占位符与示例 key，避免 .env.example / 文档误报"
+paths = [
+  '''^\.env\.example$''',
+  '''^README\.md$''',
+  '''^DEPLOYMENT\.md$''',
+  '''^docs/.*\.md$''',
+  '''^\.github/.*\.yml$''',           # CI 配置中的 ci-placeholder
+]
+regexes = [
+  '''sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx''',  # .env.example 中的占位符
+  '''sk-ci-placeholder''',                    # CI 中的占位符
+  '''REPLACE_WITH_32_PLUS_RANDOM_CHARS''',    # DEPLOYMENT.md 模板
+  '''ci-smoke-secret-32chars-padding''',      # CI smoke test
+  '''ci-integration-secret-32chars-padding''',
+  '''ci-integration-pii-key-32chars-padding''',
+  '''ci-pii-key-32chars-padding-pad''',
+  # 注：'dev-secret-change-in-prod-32chars' 已从源码移除（configuration.ts 不再兜底），
+  # 不再全局白名单——若该串出现在非 .env.example 路径应视为泄漏并告警。
+]

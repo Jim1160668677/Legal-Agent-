@@ -25,11 +25,11 @@ import { renderDsl, validateVars, RenderError, type ValidationResult } from './d
 import { extractLawRefs } from '../../../services/legal/llm/lawRefExtractor';
 import { DISCLAIMER_TEXT } from '../chat/sse-frames';
 import type { LawRef } from '../../../types/llm';
-import type { RagService } from '../retrieval/rag.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
-import type { JobService } from '../job/job.service';
-import type { DocumentRecordService } from './document-record.service';
+import { RagService } from '../retrieval/rag.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
+import { JobService } from '../job/job.service';
+import { DocumentRecordService } from './document-record.service';
 
 /** 文书生成入参 */
 export interface DocumentGenerateDto {

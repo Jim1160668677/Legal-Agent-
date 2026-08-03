@@ -44,6 +44,9 @@ import { DocumentModule } from '../document/document.module';
 import { ExportModule } from '../export/export.module';
 import { ToolModule } from '../../../services/legal/tools/tool.module';
 import { NluModule } from '../nlu/nlu.module';
+import { ReasoningModule } from '../reasoning/reasoning.module';
+import { ReviewModule } from '../review/review.module';
+import { VisionModule } from '../vision/vision.module';
 import { AgentRegistry } from './registry';
 import { LawLookupAgent } from './law-lookup.agent';
 import { LegalQaAgent } from './legal-qa.agent';
@@ -55,7 +58,8 @@ import { MemoryAgent } from './memory.agent';
 import { OrchestratorAgent } from './orchestrator.agent';
 import { ToolAgent } from './tool.agent';
 import { NluAgent } from './nlu.agent';
-import { ReasoningAgent, LawyerReviewAgent } from './stub.agent';
+import { ReasoningAgent } from './reasoning.agent';
+import { LawyerReviewAgent } from './lawyer-review.agent';
 
 @Module({
   imports: [
@@ -76,6 +80,12 @@ import { ReasoningAgent, LawyerReviewAgent } from './stub.agent';
     ToolModule,
     // v2.3-W4：NLU 域模块（EntityExtractor + ClarificationManager + CompoundIntentSplitter）
     NluModule,
+    // v2.3-W5：推理域模块（IracReasoner + FactSimilarity + LawApplicationDeterminer + CaseComparator）
+    ReasoningModule,
+    // v2.3 阶段十：律师审核评估闭环模块（LawyerReview + AnswerTracer + AnswerQualityScorer + ComplianceMonitor + LawyerAnnotation）
+    ReviewModule,
+    // v2.4：视觉模型（图像识别多模型主备切换，供 ToolAgent 注入 OcrServiceImpl）
+    VisionModule,
   ],
   providers: [
     AgentRegistry,
@@ -88,7 +98,7 @@ import { ReasoningAgent, LawyerReviewAgent } from './stub.agent';
     CaseAnalysisAgent,
     MemoryAgent,
     OrchestratorAgent,
-    // 1 工具 Agent（v2.3-W1）+ 1 NLU Agent（v2.3-W4 接入 NluModule）+ 2 桩 Agent
+    // 1 工具 Agent（v2.3-W1）+ 1 NLU Agent（v2.3-W4）+ 1 推理 Agent（v2.3-W5）+ 1 律师复核 Agent（v2.3 阶段十）
     ToolAgent,
     NluAgent,
     ReasoningAgent,
@@ -114,8 +124,8 @@ export class AgentsModule implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    // 统一注册 12 Agent（8 完整 + 1 工具 + 1 NLU + 2 桩，A4 验收 #1）
-    // 顺序：先注册叶子 agent，再注册桩 agent，最后注册编排器
+    // 统一注册 12 Agent（8 完整 + 1 工具 + 1 NLU + 1 推理 + 1 律师复核，A4 验收 #1）
+    // 顺序：先注册叶子 agent，再注册律师复核 agent，最后注册编排器
     this.registry.register(this.lawLookup);
     this.registry.register(this.legalQa);
     this.registry.register(this.caseSearch);
@@ -123,7 +133,7 @@ export class AgentsModule implements OnModuleInit {
     this.registry.register(this.document);
     this.registry.register(this.caseAnalysis);
     this.registry.register(this.memory);
-    // 1 工具 Agent（ToolRegistry）+ 1 NLU Agent（NluModule 三服务）+ 2 桩 Agent
+    // 1 工具 Agent + 1 NLU Agent + 1 推理 Agent + 1 律师复核 Agent
     this.registry.register(this.tool);
     this.registry.register(this.nlu);
     this.registry.register(this.reasoning);

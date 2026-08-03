@@ -23,10 +23,10 @@ import type {
   LawRefCheckResult,
 } from '../../../types/llm';
 import { extractLawRefs } from '../../../services/legal/llm/lawRefExtractor';
-import type { CacheService } from '../../platform/cache/cache.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
-import type { CircuitBreaker } from './circuit-breaker';
+import { CacheService } from '../../platform/cache/cache.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
+import { CircuitBreaker } from './circuit-breaker';
 
 /** legacy LlmServiceImpl 注入 token（由 LlmModule 工厂提供） */
 export const LEGACY_LLM_TOKEN = 'LEGACY_LLM_SERVICE';

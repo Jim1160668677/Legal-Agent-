@@ -102,3 +102,46 @@ export {
   type ClarificationSessionDocument,
   type ClarificationState,
 } from './clarification-session.schema';
+
+// v2.3-W5 新增：推理域（reasoning_chain）
+export {
+  ReasoningChain,
+  ReasoningChainSchema,
+  type ReasoningChainDocument,
+  type ReasoningIssue,
+  type ReasoningRule,
+  type ReasoningApplication,
+  type ReasoningConclusion,
+} from './reasoning-chain.schema';
+
+// v2.3 阶段十新增：律师审核评估闭环（lawyer_review / answer_traceability / compliance_alert）
+export {
+  LawyerReview,
+  LawyerReviewSchema,
+  type LawyerReviewDocument,
+  type LawyerReviewState,
+  type LawyerReviewRiskLevel,
+  type LawyerReviewScores,
+  type LawyerReviewAnnotations,
+  type CitationError,
+  type FactCorrection,
+  type ReasoningFlaw,
+} from './lawyer-review.schema';
+
+export {
+  AnswerTraceability,
+  AnswerTraceabilitySchema,
+  type AnswerTraceabilityDocument,
+  type CitedLaw,
+  type CitedCase,
+  type RagSource,
+} from './answer-traceability.schema';
+
+export {
+  ComplianceAlert,
+  ComplianceAlertSchema,
+  type ComplianceAlertDocument,
+  type ComplianceAlertState,
+  type ComplianceRiskLevel,
+  type ComplianceTrigger,
+} from './compliance-alert.schema';

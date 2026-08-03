@@ -1,0 +1,45 @@
+{
+  "name": "@legal-agent/web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "法律智能体网页端应用",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@legal-agent/sdk": "file:../common/sdk",
+    "react-router-dom": "^6.20.0",
+    "antd": "^5.12.0",
+    "@ant-design/icons": "^5.2.6",
+    "axios": "^1.6.2",
+    "zustand": "^4.4.7",
+    "dayjs": "^1.11.10",
+    "react-markdown": "^9.0.1",
+    "rehype-highlight": "^7.0.0",
+    "rehype-raw": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8",
+    "vitest": "^1.1.0",
+    "@testing-library/react": "^14.2.1",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/user-event": "^14.5.1",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "eslint": "^8.55.0",
+    "eslint-config-react-app": "^7.0.1",
+    "sass": "^1.69.5"
+  }
+}

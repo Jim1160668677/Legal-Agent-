@@ -36,6 +36,10 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, SuccessEnvelop
 
     return next.handle().pipe(
       map((data) => {
+        // SSE 流式响应已在 handler 中直接写入 res，headers 已发送，跳过包装
+        if (res.headersSent) {
+          return data;
+        }
         // 响应头注入 traceId（便于调用方程序化追踪）
         res.header('X-Trace-Id', traceId);
         return { code: 0, message: 'ok', traceId, data } as SuccessEnvelope<T>;

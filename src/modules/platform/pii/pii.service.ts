@@ -11,7 +11,7 @@
  * 设计依据：A1 §6.2；03 §二 数据分级；03 §三 加密策略；03 §四 PII 识别与脱敏。
  */
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
 export type PiiLevel = 'L1' | 'L2' | 'L3' | 'L4';
@@ -50,13 +50,18 @@ export class PiiService {
   private readonly encryptionKey: Buffer;
 
   constructor(config: ConfigService) {
-    // 密钥来源：环境变量 PII_ENCRYPTION_KEY（32 字节 hex 或 base64）；缺失则用 jwt.secret 派生
+    // 密钥来源：环境变量 PII_ENCRYPTION_KEY（>=32 字符）
     const raw = config.get<string>('app.pii.encryptionKey');
     if (raw && raw.length >= 32) {
       this.encryptionKey = Buffer.from(raw.slice(0, 32), 'utf8');
+    } else if (process.env.NODE_ENV === 'prod') {
+      // 生产环境必须配置独立强密钥，拒绝派生自 JWT_SECRET 启动（避免密钥同源失守）
+      throw new Error(
+        'PII_ENCRYPTION_KEY must be set (>=32 chars) in production; do not derive from JWT_SECRET',
+      );
     } else {
-      // 派生：SHA-256(jwt.secret) 截 32 字节，确保 dev 环境可用
-      const seed = config.get<string>('app.jwt.secret') ?? 'legal-agent-pii-seed';
+      // dev 兜底派生：SHA-256(jwt.secret)，仅开发环境可用
+      const seed = config.get<string>('app.jwt.secret') ?? '';
       this.encryptionKey = createHash('sha256').update(seed).digest();
     }
   }

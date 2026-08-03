@@ -14,8 +14,10 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { Logger as PinoLogger } from 'nestjs-pino';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -26,11 +28,14 @@ async function bootstrap(): Promise<void> {
   // 用 pino 替换 NestJS 默认 Logger，使框架内部日志也走结构化输出
   app.useLogger(app.get(PinoLogger));
 
+  const config = app.get(ConfigService);
+
   // 安全头
   app.use(helmet());
 
-  // CORS（A1 阶段开放所有源；A5 接入外部 agent 时收紧白名单）
-  app.enableCors();
+  // CORS：空白名单 = 禁止跨域（拒绝任意源反射）；非空 = 仅白名单
+  const corsOrigins = config.get<string[]>('app.cors.origins') ?? [];
+  app.enableCors(corsOrigins.length > 0 ? { origin: corsOrigins } : { origin: false });
 
   // 全局参数校验：whitelist 剥离未声明字段，transform 自动类型转换
   app.useGlobalPipes(
@@ -47,15 +52,44 @@ async function bootstrap(): Promise<void> {
   // 全局响应 → 统一信封（SSE 自动放行）
   app.useGlobalInterceptors(new ResponseInterceptor());
 
+  // 优雅停机：SIGTERM/SIGINT 触发 onModuleDestroy，让 mongoose/redis 优雅断开（Phase 1.3）
+  // 生产容器（Docker/k8s/systemd）发 SIGTERM 时，避免连接泄漏与在途请求被硬中断
+  app.enableShutdownHooks();
+
+  // Swagger 文档：仅 SWAGGER_ENABLED=true 且非生产环境时挂载（生产强制关闭，避免暴露 API schema）
+  // 注意：NODE_ENV 合法值为 dev/staging/prod（见 validation.schema.ts），生产为 'prod'
+  const swaggerEnabled =
+    config.get<boolean>('app.swagger.enabled') === true && process.env.NODE_ENV !== 'prod';
+  if (swaggerEnabled) {
+    const swaggerPath = config.get<string>('app.swagger.path') ?? '/docs';
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('legal-agent')
+      .setDescription('NestJS 法律 Agent 服务 API（12 Agent + 意图路由 + 混合检索 + 文书生成）')
+      .setVersion('0.1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup(swaggerPath, app, document);
+  }
+
   const port = process.env.PORT ?? '3000';
   await app.listen(port);
 
   const logger = new Logger('Bootstrap');
   logger.log(`legal-agent NestJS service listening on :${port}`);
   logger.log(`health check: GET http://localhost:${port}/health`);
+  if (swaggerEnabled) {
+    logger.log(
+      `swagger UI: http://localhost:${port}${config.get<string>('app.swagger.path') ?? '/docs'}`,
+    );
+  }
 }
 
 bootstrap().catch((err: unknown) => {
-  console.error('Failed to bootstrap NestJS app:', err);
+  // bootstrap 失败在 Logger 初始化之前，只能 fallback 到 stderr
+  process.stderr.write(
+    JSON.stringify({ level: 'fatal', msg: 'Failed to bootstrap NestJS app', error: String(err) }) +
+      '\n',
+  );
   process.exit(1);
 });

@@ -24,6 +24,7 @@ import { ConfigService } from '@nestjs/config';
 import type { LlmService } from '../../../types/llm';
 import { LlmServiceImpl } from '../../../services/legal/llm';
 import { createDefaultRegistry } from '../../../services/legal/llm/registry';
+import { ZhipuProvider } from '../../../services/legal/llm/zhipuProvider';
 import { LLM_SERVICE_TOKEN } from '../intent/intent-router.service';
 import { CacheModule } from '../../platform/cache/cache.module';
 import { AuditModule } from '../../platform/audit/audit.module';
@@ -44,7 +45,14 @@ import { CachedLlmService, LEGACY_LLM_TOKEN } from './cached-llm.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService): LlmService => {
         const legacyCfg = buildLegacyConfig(config);
-        const registry = createDefaultRegistry(legacyCfg);
+        // createDefaultRegistry 只注册 agnes + qwen，若 provider=zhipu 会在 setActive 时抛错
+        // 临时用 agnes 创建 registry，注册 ZhipuProvider 后再切换到实际 provider
+        const registry = createDefaultRegistry({
+          ...legacyCfg,
+          llm: { ...legacyCfg.llm, provider: 'agnes' },
+        });
+        registry.register(new ZhipuProvider(legacyCfg.zhipu, legacyCfg.llm));
+        registry.setActive(legacyCfg.llm.provider);
         return new LlmServiceImpl(registry);
       },
     },

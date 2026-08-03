@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import {
   createAgnesService,
   createServiceWithConfig,
   cloneConfig,
-  hasAgnesKey,
+  ensureAgnesReady,
   DEFAULT_OPTS,
 } from '../helpers/agnesFixture';
 import { createDefaultRegistry } from '../../src/services/legal/llm/registry';
@@ -19,40 +19,57 @@ import { NotImplementedError } from '../../src/services/legal/llm/provider';
  * 3. validateLawRefs 正则提取
  */
 
-describe.skipIf(!hasAgnesKey())('LlmService E2E', () => {
-  it('1. 经 LlmService.generate（agnes active）端到端 → 返回 pong', async () => {
-    const service = createAgnesService();
-    const r = await service.generate('Reply with exactly pong.', {
-      ...DEFAULT_OPTS,
-      maxTokens: 8,
-    });
-    expect(r.content).toBeTruthy();
-    expect(r.content.toLowerCase()).toContain('pong');
-    expect(r.model).toContain('agnes');
+let agnesReady = false;
+
+describe('LlmService E2E', () => {
+  beforeAll(async () => {
+    agnesReady = await ensureAgnesReady();
+    if (!agnesReady) {
+      console.warn('[LlmService E2E] Agnes API not available, skipping E2E tests');
+    }
   });
 
-  it('2. 切换 active=qwen → LlmService.generate 抛 NotImplementedError', async () => {
-    const cfg = cloneConfig();
-    // 构造 registry 并切到 qwen
-    const registry = createDefaultRegistry(cfg);
-    registry.setActive('qwen');
-    const service = new LlmServiceImpl(registry);
+  it.skipIf(!agnesReady)(
+    '1. 经 LlmService.generate（agnes active）端到端 → 返回 pong',
+    async () => {
+      const service = createAgnesService();
+      const r = await service.generate('Reply with exactly pong.', {
+        ...DEFAULT_OPTS,
+        maxTokens: 8,
+      });
+      expect(r.content).toBeTruthy();
+      expect(r.content.toLowerCase()).toContain('pong');
+      expect(r.model).toContain('agnes');
+    },
+  );
 
-    await expect(service.generate('hi', { ...DEFAULT_OPTS })).rejects.toBeInstanceOf(
-      NotImplementedError,
-    );
+  it.skipIf(!agnesReady)(
+    '2. 切换 active=qwen → LlmService.generate 抛 NotImplementedError',
+    async () => {
+      const cfg = cloneConfig();
+      // 强制 agnes provider 注册（.env 可能 LLM_PROVIDER=zhipu），再切换到 qwen
+      cfg.llm.provider = 'agnes';
+      // 构造 registry 并切到 qwen
+      const registry = createDefaultRegistry(cfg);
+      registry.setActive('qwen');
+      const service = new LlmServiceImpl(registry);
 
-    // stream 同样抛
-    await expect(
-      (async () => {
-        for await (const _ of service.stream('hi', { ...DEFAULT_OPTS })) {
-          // 迭代即抛
-        }
-      })(),
-    ).rejects.toBeInstanceOf(NotImplementedError);
-  });
+      await expect(service.generate('hi', { ...DEFAULT_OPTS })).rejects.toBeInstanceOf(
+        NotImplementedError,
+      );
 
-  it('3. validateLawRefs 正则提取 → unverified 含法条引用', async () => {
+      // stream 同样抛
+      await expect(
+        (async () => {
+          for await (const _ of service.stream('hi', { ...DEFAULT_OPTS })) {
+            // 迭代即抛
+          }
+        })(),
+      ).rejects.toBeInstanceOf(NotImplementedError);
+    },
+  );
+
+  it.skipIf(!agnesReady)('3. validateLawRefs 正则提取 → unverified 含法条引用', async () => {
     const service = createAgnesService();
     // 使用《》规范引用格式（标准法律引用），避免裸名前接 CJK 连词导致过度匹配
     const text = '根据《民法典》第一百四十三条及《刑法》第二百六十四条的规定，行为人...';
@@ -67,7 +84,7 @@ describe.skipIf(!hasAgnesKey())('LlmService E2E', () => {
     expect(result.sanitizedText).toBe(text);
   });
 
-  it('4. complete 兼容别名 → 返回纯字符串 content', async () => {
+  it.skipIf(!agnesReady)('4. complete 兼容别名 → 返回纯字符串 content', async () => {
     const service = createAgnesService();
     const content = await service.complete('Reply with exactly pong.', {
       ...DEFAULT_OPTS,

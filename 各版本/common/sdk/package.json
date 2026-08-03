@@ -1,0 +1,64 @@
+{
+  "name": "@legal-agent/sdk",
+  "version": "1.0.0",
+  "description": "法律智能体统一SDK - 支持多平台客户端",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./wechat": {
+      "import": "./dist/wechat/index.js",
+      "types": "./dist/wechat/index.d.ts"
+    },
+    "./android": {
+      "import": "./dist/android/index.js",
+      "types": "./dist/android/index.d.ts"
+    },
+    "./ios": {
+      "import": "./dist/ios/index.js",
+      "types": "./dist/ios/index.d.ts"
+    },
+    "./harmony": {
+      "import": "./dist/harmony/index.js",
+      "types": "./dist/harmony/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs && npm run build:types",
+    "build:esm": "tsc --module es2020 --outDir dist/esm",
+    "build:cjs": "tsc --module commonjs --outDir dist/cjs",
+    "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist",
+    "test": "vitest run",
+    "lint": "eslint src/",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "legal",
+    "agent",
+    "sdk",
+    "multi-platform"
+  ],
+  "author": "Sapiens AI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SapiensAI/legal-agent"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

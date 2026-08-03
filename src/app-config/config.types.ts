@@ -25,8 +25,13 @@ export interface AppConfig {
     refreshExpiresIn: string;
   };
   llm: {
-    provider: 'agnes' | 'qwen';
+    provider: 'agnes' | 'qwen' | 'zhipu';
     agnes: {
+      apiKey: string;
+      baseUrl: string;
+      defaultModel: string;
+    };
+    zhipu: {
       apiKey: string;
       baseUrl: string;
       defaultModel: string;
@@ -46,6 +51,29 @@ export interface AppConfig {
   };
   /** A2-W2：Embedding 向量化配置（mock 默认；agnes 需 EMBEDDING_API_KEY） */
   embedding: EmbeddingConfig;
+  /** Phase 2 A5：CORS 允许源（空数组 = 允许所有） */
+  cors: {
+    origins: string[];
+  };
+  /** Phase 2 A5：Swagger 文档开关与路径（生产环境 enabled=false） */
+  swagger: {
+    enabled: boolean;
+    path: string;
+  };
+  /** Phase 2 A5：全局限流（@nestjs/throttler，Redis 存储） */
+  throttle: {
+    ttlMs: number;
+    limit: number;
+    dailyLimit: number;
+  };
+  /** v2.4：视觉模型配置（图像识别多模型主备切换） */
+  vision: {
+    primaryModel: string;
+    fallbackModel: string;
+    timeoutMs: number;
+    maxRetries: number;
+    cooldownMs: number;
+  };
 }
 
 export type AppConfigRoot = Record<string, unknown>;

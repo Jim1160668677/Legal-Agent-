@@ -16,26 +16,24 @@
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import type { EmbeddingProvider } from './embedding.types';
+import { EmbeddingProvider } from './embedding.types';
 import { EMBEDDING_PROVIDER_TOKEN } from './embedding.types';
-import type { CacheService } from '../../platform/cache/cache.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { CacheService } from '../../platform/cache/cache.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 
 /** 向量缓存默认 TTL：30 天（A2 §五） */
 const DEFAULT_CACHE_TTL_SEC = 30 * 24 * 3600;
 
 @Injectable()
 export class EmbeddingService {
-  private readonly cacheTtlSec: number;
+  /** 向量缓存 TTL（秒），原为构造函数参数但 NestJS DI 会尝试注入 Number 类型，改为类字段初始化 */
+  private readonly cacheTtlSec: number = DEFAULT_CACHE_TTL_SEC;
 
   constructor(
     @Inject(EMBEDDING_PROVIDER_TOKEN) private readonly provider: EmbeddingProvider,
     @Optional() private readonly cache?: CacheService,
     @Optional() private readonly logger?: AppLoggerService,
-    cacheTtlSec = DEFAULT_CACHE_TTL_SEC,
-  ) {
-    this.cacheTtlSec = cacheTtlSec;
-  }
+  ) {}
 
   /** 单条向量化 */
   async embed(text: string): Promise<number[]> {

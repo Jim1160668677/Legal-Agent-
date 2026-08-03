@@ -27,15 +27,15 @@
  */
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import { randomUUID } from 'node:crypto';
 import {
   AgentJob,
   type AgentJobDocument,
   type JobStatus,
 } from '../../../infra/database/schemas/job.schema';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { requestContext } from '../../../common/context/request-context';
 
 /** 任务不存在错误码（2003） */
@@ -72,7 +72,8 @@ const JOB_TIMEOUT_MS = 60_000;
 export class JobService {
   constructor(
     @InjectModel(AgentJob.name) private readonly model: Model<AgentJobDocument>,
-    @Optional() private readonly pii?: PiiService,
+    // PiiService 强制注入（PiiModule 已在 JobModule 导入），杜绝 params 明文降级
+    private readonly pii: PiiService,
     @Optional() private readonly logger?: AppLoggerService,
   ) {}
 
@@ -90,7 +91,7 @@ export class JobService {
     const jobId = randomUUID();
     const now = new Date();
     const expireAt = new Date(now.getTime() + 30 * 24 * 3600 * 1000); // TTL 30 天
-    const encryptedParams = this.encryptParams(params, jobId);
+    const encryptedParams = this.encryptParams(params);
 
     await this.model.create({
       jobId,
@@ -282,25 +283,13 @@ export class JobService {
 
   // ===== 内部辅助 =====
 
-  /** 加密 params：JSON.stringify → PiiService.encrypt */
-  private encryptParams(params: unknown, jobId: string): string {
-    const json = JSON.stringify(params);
-    if (!this.pii) {
-      this.logger?.warn('JobService: PiiService 未注入，params 明文存储（仅开发环境）', { jobId });
-      return json;
-    }
-    return this.pii.encrypt(json);
+  /** 加密 params：JSON.stringify → PiiService.encrypt（无明文降级） */
+  private encryptParams(params: unknown): string {
+    return this.pii.encrypt(JSON.stringify(params));
   }
 
-  /** 解密 params */
+  /** 解密 params（解密失败返回空对象并记录错误，不外泄密文） */
   private decryptParams(encrypted: string, jobId: string): unknown {
-    if (!this.pii) {
-      try {
-        return JSON.parse(encrypted);
-      } catch {
-        return {};
-      }
-    }
     try {
       return JSON.parse(this.pii.decrypt(encrypted));
     } catch (err) {

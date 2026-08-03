@@ -20,9 +20,10 @@
  * 设计依据：A4 §五 5.3；A4 §6.4 降级；A4 §8.2 PII 边界；A4 §8.3 超时。
  */
 import { Optional } from '@nestjs/common';
-import type { PiiService, PiiLevel } from '../../platform/pii/pii.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import type { PiiLevel } from '../../platform/pii/pii.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import type {
   AgentCard,
   AgentContext,

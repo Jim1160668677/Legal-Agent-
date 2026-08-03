@@ -24,13 +24,13 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { BaseAgent } from './base.agent';
 import type { AgentCard, AgentContext, AgentInvokeInput, AgentInvokeOutput } from './types';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { DISCLAIMER_TEXT } from '../chat/sse-frames';
-import type { EntityExtractorService } from '../nlu/entity-extractor.service';
-import type { ClarificationManagerService } from '../nlu/clarification-manager.service';
-import type { CompoundIntentSplitterService } from '../nlu/compound-intent-splitter.service';
+import { EntityExtractorService } from '../nlu/entity-extractor.service';
+import { ClarificationManagerService } from '../nlu/clarification-manager.service';
+import { CompoundIntentSplitterService } from '../nlu/compound-intent-splitter.service';
 import type { NluContext, Entity } from '../nlu/nlu.types';
 import type { IntentType } from '../../../types/intent';
 

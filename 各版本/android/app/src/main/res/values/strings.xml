@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">法律智能助手</string>
+
+    <!-- 导航 -->
+    <string name="nav_chat">对话</string>
+    <string name="nav_analysis">分析</string>
+    <string name="nav_knowledge">知识</string>
+    <string name="nav_profile">我的</string>
+
+    <!-- 登录 -->
+    <string name="login_title">登录</string>
+    <string name="login_username">用户名</string>
+    <string name="login_password">密码</string>
+    <string name="login_button">登录</string>
+    <string name="login_loading">登录中…</string>
+    <string name="login_error">登录失败，请检查用户名和密码</string>
+    <string name="login_username_required">请输入用户名</string>
+    <string name="login_password_required">请输入密码</string>
+
+    <!-- 聊天 -->
+    <string name="chat_title">智能对话</string>
+    <string name="chat_hint">输入您的法律问题…</string>
+    <string name="chat_send">发送</string>
+    <string name="chat_new_session">新会话</string>
+    <string name="chat_loading">正在思考…</string>
+    <string name="chat_session_deleted">会话已删除</string>
+
+    <!-- 分析 -->
+    <string name="analysis_title">案件分析</string>
+    <string name="analysis_case_type">案件类型</string>
+    <string name="analysis_facts">案件事实</string>
+    <string name="analysis_facts_hint">请输入案件相关事实描述…</string>
+    <string name="analysis_button">开始分析</string>
+    <string name="analysis_loading">分析中…</string>
+    <string name="analysis_result">分析结果</string>
+    <string name="analysis_result_title">案件标题</string>
+    <string name="analysis_result_risk">风险评估</string>
+    <string name="analysis_result_advice">法律建议</string>
+
+    <!-- 知识 -->
+    <string name="knowledge_title">法律知识</string>
+    <string name="knowledge_search">搜索法律法规…</string>
+    <string name="knowledge_category">分类筛选</string>
+    <string name="knowledge_result_count">%d 条结果</string>
+
+    <!-- 个人中心 -->
+    <string name="profile_title">个人中心</string>
+    <string name="profile_username">用户名</string>
+    <string name="profile_logout">退出登录</string>
+    <string name="profile_logout_confirm">确定要退出登录吗？</string>
+    <string name="profile_cancel">取消</string>
+    <string name="profile_confirm">确定</string>
+
+    <!-- 通用 -->
+    <string name="error_network">网络连接失败，请检查网络设置</string>
+    <string name="error_unknown">未知错误</string>
+    <string name="retry">重试</string>
+</resources>

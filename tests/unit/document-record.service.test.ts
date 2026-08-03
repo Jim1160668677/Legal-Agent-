@@ -7,7 +7,7 @@
  *   - findByUser：分页列表（不含敏感字段）
  *   - updateExport：回填 exportFileId + status=exported
  *   - deleteByDocId：删除记录
- *   - PiiService 未注入时降级明文（dev 模式）
+ *   - PiiService 强制注入：未注入时 create 抛错（拒绝明文降级）
  *   - 文书不存在抛 NotFoundException(2002)
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -130,36 +130,20 @@ describe('DocumentRecordService', () => {
       expect(result.lawRefs).toEqual(['民法典第一百四十三条', '民事诉讼法第一百一十九条']);
     });
 
-    it('PiiService 未注入时降级明文', async () => {
+    it('PiiService 未注入时拒绝明文降级（抛错，不静默写入明文）', async () => {
       const devSvc = new DocumentRecordService(model as never, undefined, logger as never);
-      const createdDoc = {
-        docId: 'doc-1',
-        userId: 'u1',
-        templateCode: 'civil_complaint_v1',
-        templateVersion: 1,
-        varsFilled: JSON.stringify({ a: 1 }),
-        renderedText: '正文',
-        lawRefs: [],
-        status: 'generated',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      model.create.mockResolvedValueOnce(createdDoc);
-
-      const result = await devSvc.create({
-        docId: 'doc-1',
-        userId: 'u1',
-        templateCode: 'civil_complaint_v1',
-        varsFilled: { a: 1 },
-        renderedText: '正文',
-        lawRefs: [],
-      });
-
-      expect(result.varsFilled).toEqual({ a: 1 });
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('PiiService 未注入'),
-        expect.anything(),
-      );
+      await expect(
+        devSvc.create({
+          docId: 'doc-1',
+          userId: 'u1',
+          templateCode: 'civil_complaint_v1',
+          varsFilled: { a: 1 },
+          renderedText: '正文',
+          lawRefs: [],
+        }),
+      ).rejects.toThrow();
+      // 明文降级路径已移除：不应写入数据库
+      expect(model.create).not.toHaveBeenCalled();
     });
   });
 
@@ -284,6 +268,50 @@ describe('DocumentRecordService', () => {
         exec: () => Promise.resolve({ deletedCount: 0 }),
       });
       await expect(svc.deleteByDocId('no-such')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('assertOwner', () => {
+    it('所有者通过', async () => {
+      model.findOne.mockReturnValueOnce({
+        select: () => ({
+          lean: () => ({ exec: () => Promise.resolve({ userId: 'u1' }) }),
+        }),
+      });
+      await expect(svc.assertOwner('doc-1', 'u1')).resolves.toBeUndefined();
+    });
+
+    it('非所有者抛 NotFoundException(2002)', async () => {
+      model.findOne.mockReturnValueOnce({
+        select: () => ({
+          lean: () => ({ exec: () => Promise.resolve({ userId: 'u1' }) }),
+        }),
+      });
+      await expect(svc.assertOwner('doc-1', 'u2')).rejects.toThrow(NotFoundException);
+      try {
+        await svc.assertOwner('doc-1', 'u2');
+      } catch (e) {
+        const resp = (e as NotFoundException).getResponse() as { code: number };
+        expect(resp.code).toBe(2002);
+      }
+    });
+
+    it('admin 可查任意文书', async () => {
+      model.findOne.mockReturnValueOnce({
+        select: () => ({
+          lean: () => ({ exec: () => Promise.resolve({ userId: 'u1' }) }),
+        }),
+      });
+      await expect(svc.assertOwner('doc-1', 'u2', true)).resolves.toBeUndefined();
+    });
+
+    it('文书不存在抛 NotFoundException(2002)', async () => {
+      model.findOne.mockReturnValueOnce({
+        select: () => ({
+          lean: () => ({ exec: () => Promise.resolve(null) }),
+        }),
+      });
+      await expect(svc.assertOwner('no-such', 'u1')).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -1,7 +1,8 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll, beforeEach } from 'vitest';
 import {
   createAgnesService,
   hasAgnesKey,
+  probeAgnesConnectivity,
   SHORT_PROMPT,
   LONG_PROMPT,
   DEFAULT_OPTS,
@@ -30,6 +31,18 @@ function sleep(ms: number): Promise<void> {
 const PERF_OPTS = { ...DEFAULT_OPTS, maxRetries: 5 };
 
 describe.skipIf(!hasAgnesKey())('Agnes 性能', () => {
+  let agnesReachable = false;
+
+  // 连通性预检在 beforeAll 中执行（避免 top-level await 阻塞模块加载导致 vitest worker RPC 超时）
+  beforeAll(async () => {
+    agnesReachable = await probeAgnesConnectivity();
+  }, 8_000);
+
+  // 网络不可达时跳过所有测试（而非逐个超时失败）
+  beforeEach((ctx) => {
+    if (!agnesReachable) ctx.skip();
+  });
+
   afterAll(() => {
     printTable();
   });

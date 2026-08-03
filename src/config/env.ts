@@ -1,4 +1,4 @@
-﻿import type { LogLevel, LlmProviderName } from './types';
+import type { LogLevel, LlmProviderName } from './types';
 
 /**
  * 环境变量读取与校验工具。
@@ -51,6 +51,10 @@ export const env = {
 
   /** LlmProviderName 枚举 */
   providerName(fallback: LlmProviderName = 'agnes'): LlmProviderName {
-    return env.oneOf<LlmProviderName>('LLM_PROVIDER', ['agnes', 'qwen'] as const, fallback);
+    return env.oneOf<LlmProviderName>(
+      'LLM_PROVIDER',
+      ['agnes', 'qwen', 'zhipu'] as const,
+      fallback,
+    );
   },
 };

@@ -8,10 +8,11 @@ import { registerAs } from '@nestjs/config';
 import type { AppConfig } from './config.types';
 
 export default registerAs('app', (): AppConfig => {
-  const provider = (process.env.LLM_PROVIDER ?? 'agnes') as 'agnes' | 'qwen';
+  const provider = (process.env.LLM_PROVIDER ?? 'agnes') as 'agnes' | 'qwen' | 'zhipu';
 
   // dev 环境允许 AGNES_API_KEY 缺失（仅 NestJS 骨架验证，不调 LLM）
   const agnesApiKey = process.env.AGNES_API_KEY ?? '';
+  const zhipuApiKey = process.env.ZHIPU_API_KEY ?? '';
 
   return {
     env: (process.env.NODE_ENV ?? 'dev') as AppConfig['env'],
@@ -24,7 +25,8 @@ export default registerAs('app', (): AppConfig => {
       keyPrefix: process.env.REDIS_KEY_PREFIX ?? 'legal:',
     },
     jwt: {
-      secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-prod-32chars',
+      // JWT_SECRET 由 Joi 校验强制 ≥32 字符且 required，此处不再兜底弱密钥（避免源码内嵌已知密钥）
+      secret: process.env.JWT_SECRET!,
       expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
       refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '30d',
     },
@@ -34,6 +36,11 @@ export default registerAs('app', (): AppConfig => {
         apiKey: agnesApiKey,
         baseUrl: process.env.AGNES_BASE_URL ?? 'https://apihub.agnes-ai.com/v1',
         defaultModel: process.env.AGNES_DEFAULT_MODEL ?? 'agnes-2.0-flash',
+      },
+      zhipu: {
+        apiKey: zhipuApiKey,
+        baseUrl: process.env.ZHIPU_BASE_URL ?? 'https://open.bigmodel.cn/api/paas/v4',
+        defaultModel: process.env.ZHIPU_DEFAULT_MODEL ?? 'glm-4.7-flash',
       },
       timeoutMs: parseInt(process.env.LLM_TIMEOUT_MS ?? '30000', 10),
       maxRetries: parseInt(process.env.LLM_MAX_RETRIES ?? '3', 10),
@@ -55,6 +62,30 @@ export default registerAs('app', (): AppConfig => {
       dimension: parseInt(process.env.EMBEDDING_DIMENSION ?? '1536', 10),
       batchSize: parseInt(process.env.EMBEDDING_BATCH_SIZE ?? '10', 10),
       cacheTtlSec: parseInt(process.env.EMBEDDING_CACHE_TTL_SEC ?? '2592000', 10), // 30 天
+    },
+    // Phase 2 A5 关键项：CORS / Swagger / Throttle
+    cors: {
+      origins: (process.env.CORS_ORIGINS ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    },
+    swagger: {
+      enabled: (process.env.SWAGGER_ENABLED ?? 'true') === 'true',
+      path: process.env.SWAGGER_PATH ?? '/docs',
+    },
+    throttle: {
+      ttlMs: parseInt(process.env.THROTTLE_TTL_MS ?? '60000', 10),
+      limit: parseInt(process.env.THROTTLE_LIMIT ?? '100', 10),
+      dailyLimit: parseInt(process.env.THROTTLE_DAILY_LIMIT ?? '10000', 10),
+    },
+    // v2.4：视觉模型（图像识别多模型主备切换）
+    vision: {
+      primaryModel: process.env.VISION_PRIMARY_MODEL ?? 'glm-4v-flash',
+      fallbackModel: process.env.VISION_FALLBACK_MODEL ?? 'glm-4v-plus',
+      timeoutMs: parseInt(process.env.VISION_TIMEOUT_MS ?? '30000', 10),
+      maxRetries: parseInt(process.env.VISION_MAX_RETRIES ?? '2', 10),
+      cooldownMs: parseInt(process.env.VISION_COOLDOWN_MS ?? '30000', 10),
     },
   };
 });

@@ -1,22 +1,30 @@
 /**
- * HealthController 单元测试（A1-W1）。
+ * HealthController 单元测试（A1-W1 + Phase 1.2 扩展）。
  *
- * 用 NestJS Testing Module 验证 /health 端点逻辑正确（不依赖真实 DB/Redis）。
+ * 用 NestJS Testing Module 验证 /health 与 /health/ready 端点逻辑正确（不依赖真实 DB/Redis）。
  * 验收标准 A1 §十三第 1 项：/health 返回 200 + status:ok。
+ *
+ * Phase 1.2：mock mongo.Connection + REDIS_CLIENT，原 /health 用例不回归。
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
+import { getConnectionToken } from '@nestjs/mongoose';
 import request from 'supertest';
-import { HealthModule } from '../../src/modules/health/health.module';
+import { HealthController } from '../../src/modules/health/health.controller';
+import { REDIS_CLIENT } from '../../src/infra/redis/redis.module';
 import { ResponseInterceptor } from '../../src/common/interceptors/response.interceptor';
 
-describe('HealthController (NestJS Testing)', () => {
+describe('HealthController /health (liveness)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [HealthModule],
+      controllers: [HealthController],
+      providers: [
+        { provide: getConnectionToken(), useValue: { readyState: 1 } },
+        { provide: REDIS_CLIENT, useValue: { ping: vi.fn().mockResolvedValue('PONG') } },
+      ],
     })
       .overrideInterceptor(ResponseInterceptor)
       .useValue(new ResponseInterceptor())

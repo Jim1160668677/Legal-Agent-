@@ -32,9 +32,9 @@ import { Injectable, Optional } from '@nestjs/common';
 import { BaseAgent } from './base.agent';
 import type { AgentCard, AgentContext, AgentInvokeInput, AgentInvokeOutput } from './types';
 import { AGENT_ERROR_CODES } from './types';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { DISCLAIMER_TEXT } from '../chat/sse-frames';
 import {
   LegalToolError,
@@ -43,7 +43,8 @@ import {
   type ToolId,
   type ToolResult,
 } from '../../../services/legal/tools/types';
-import type { ToolRegistry } from '../../../services/legal/tools/registry';
+import { ToolRegistry } from '../../../services/legal/tools/registry';
+import { OcrServiceImpl } from '../vision/ocr-service.impl';
 
 /** ToolAgent 的 8 个 capability（与 14-tool-design.md §2.1 ToolId 对齐） */
 export const TOOL_CAPABILITIES = [
@@ -114,6 +115,7 @@ export class ToolAgent extends BaseAgent {
     @Optional() pii?: PiiService,
     @Optional() audit?: AuditLogService,
     @Optional() logger?: AppLoggerService,
+    @Optional() private readonly ocrService?: OcrServiceImpl,
   ) {
     super(pii, audit, logger);
   }
@@ -162,7 +164,8 @@ export class ToolAgent extends BaseAgent {
       userId: ctx.callerUserId,
       traceId: ctx.traceId,
       requestId: `${ctx.traceId}-${toolId}`,
-      // featureFlags / llmService / ocrService / pii 暂不透传（v2.4 接入）
+      // v2.4：注入视觉 OCR 服务（LicenseOcrTool 通过 ctx.ocrService 调用）
+      ...(this.ocrService ? { ocrService: this.ocrService } : {}),
     };
 
     // 5. 调用 ToolRegistry.dispatch

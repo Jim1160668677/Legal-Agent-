@@ -20,15 +20,16 @@
  */
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
-import type { LlmService, ChatMessage } from '../../../types/llm';
+import { Model } from 'mongoose';
+import { LlmService } from '../../../types/llm';
+import type { ChatMessage } from '../../../types/llm';
 import { LLM_SERVICE_TOKEN } from '../../legal/intent/intent-router.service';
 import { Inject } from '@nestjs/common';
 import {
   EntityExtraction,
   type EntityExtractionDocument,
 } from '../../../infra/database/schemas/entity-extraction.schema';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import { PARTY_ROLE_TERMS, LEGAL_TERM_DICT, isPronoun } from '../../../data/legalTerms';
 import type { Entity, EntityExtractResult, NluContext } from './nlu.types';
 import type {

@@ -35,6 +35,52 @@ export interface LegalKnowledgeLean {
   tags?: string[];
 }
 
+/**
+ * 对外法律知识 DTO（KnowledgeController 返回）。
+ * 相比 KnowledgeResult，增加 id（由 _id 映射），供前端详情页定位。
+ */
+export interface KnowledgeArticleDto {
+  id: string;
+  type: KnowledgeType;
+  category: string;
+  subCategory?: string;
+  title: string;
+  content: string;
+  structured?: Record<string, unknown>;
+  lawRefs: { ref: string; verified: boolean }[];
+  tags?: string[];
+}
+
+/** 知识列表分页结果 */
+export interface KnowledgeListResult {
+  items: KnowledgeArticleDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** 知识分类信息（listCategories 聚合结果） */
+export interface KnowledgeCategoryInfo {
+  category: string;
+  types: KnowledgeType[];
+  count: number;
+}
+
+/** 将 LegalKnowledgeLean 映射为带 id 的对外 DTO */
+export function toKnowledgeArticleDto(doc: LegalKnowledgeLean): KnowledgeArticleDto {
+  return {
+    id: String(doc._id),
+    type: normalizeKnowledgeType(doc.type),
+    category: doc.category,
+    subCategory: doc.subCategory,
+    title: doc.title,
+    content: doc.content,
+    structured: doc.structured,
+    lawRefs: (doc.lawRefs ?? []).map((ref) => ({ ref, verified: false })),
+    tags: doc.tags,
+  };
+}
+
 /** queryByKeyword 命中权重：标题 > tags > content */
 const SCORE_TITLE_HIT = 1.0;
 const SCORE_TAG_HIT = 0.6;

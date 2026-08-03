@@ -23,11 +23,15 @@ import type { AppConfig as LegacyAppConfig } from '../../../config/types';
  * 隔离新旧配置差异，避免污染现有 llm 层。
  */
 export function buildLegacyConfig(config: ConfigService): LegacyAppConfig {
-  const provider = config.get<'agnes' | 'qwen'>('app.llm.provider') ?? 'agnes';
+  const provider = config.get<'agnes' | 'qwen' | 'zhipu'>('app.llm.provider') ?? 'agnes';
   const agnesApiKey = config.get<string>('app.llm.agnes.apiKey') ?? '';
   const agnesBaseUrl =
     config.get<string>('app.llm.agnes.baseUrl') ?? 'https://apihub.agnes-ai.com/v1';
   const agnesModel = config.get<string>('app.llm.agnes.defaultModel') ?? 'agnes-2.0-flash';
+  const zhipuApiKey = config.get<string>('app.llm.zhipu.apiKey') ?? '';
+  const zhipuBaseUrl =
+    config.get<string>('app.llm.zhipu.baseUrl') ?? 'https://open.bigmodel.cn/api/paas/v4';
+  const zhipuModel = config.get<string>('app.llm.zhipu.defaultModel') ?? 'glm-4.7-flash';
 
   return {
     llm: {
@@ -47,6 +51,12 @@ export function buildLegacyConfig(config: ConfigService): LegacyAppConfig {
       apiKey: config.get<string>('app.llm.qwen.apiKey') ?? '',
       baseURL: config.get<string>('app.llm.qwen.baseUrl') ?? '',
       defaultModel: config.get<string>('app.llm.qwen.defaultModel') ?? '',
+    },
+    // 智谱 GLM（OpenAI 兼容；免费模型 glm-4.7-flash）
+    zhipu: {
+      apiKey: zhipuApiKey,
+      baseURL: zhipuBaseUrl,
+      defaultModel: zhipuModel,
     },
   };
 }

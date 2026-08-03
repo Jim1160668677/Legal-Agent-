@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FeatureFlag —— 灰度开关服务（A1-W2）。
  *
  * 职责（A1 §6.6）：
@@ -18,13 +18,13 @@
  */
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import { createHash } from 'node:crypto';
 import {
   FeatureFlag,
   type FeatureFlagDocument,
 } from '../../../infra/database/schemas/system.schema';
-import type { CacheService } from '../cache/cache.service';
+import { CacheService } from '../cache/cache.service';
 
 const CACHE_TTL_SEC = 60;
 const cacheKey = (flagKey: string): string => `feature_flag:${flagKey}`;

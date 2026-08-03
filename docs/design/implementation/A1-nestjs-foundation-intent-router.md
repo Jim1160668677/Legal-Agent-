@@ -1,4 +1,4 @@
-﻿# A1 · NestJS 工程脚手架 + 意图识别 + 三层混合架构基础
+﻿﻿# A1 · NestJS 工程脚手架 + 意图识别 + 三层混合架构基础
 
 > 阶段：A1（后端业务补齐第一步） | 对应 v2.3 路线图阶段一 | 前置依赖：无（起点）
 > 技术栈：NestJS 10 + TypeScript 5 + MongoDB 6（Mongoose）+ Redis 7

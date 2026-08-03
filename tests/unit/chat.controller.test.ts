@@ -11,6 +11,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
+import type { AppLoggerService } from '../../src/modules/platform/logger/logger.service';
 import { ChatController } from '../../src/modules/legal/chat/chat.controller';
 import { CHAT_MESSAGE_MAX_LEN } from '../../src/modules/legal/chat/chat.dto';
 import { requestContext } from '../../src/common/context/request-context';
@@ -40,6 +42,24 @@ function makeRes() {
   };
 }
 
+/** 构造 mock ConfigService（ChatController 限流器需 app.rateLimit.perUserChatPerMin） */
+function makeConfig(): ConfigService {
+  const store: Record<string, unknown> = {
+    'app.rateLimit.perUserChatPerMin': 20,
+  };
+  return { get: <T>(key: string): T => store[key] as T } as unknown as ConfigService;
+}
+
+/** 构造 mock AppLoggerService（ChatController 注入的依赖） */
+function makeLogger(): AppLoggerService {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  } as unknown as AppLoggerService;
+}
+
 const mockUser = { sub: 'u1', role: 'user' };
 
 /** 在 requestContext 内运行，便于 controller 取 traceId */
@@ -57,9 +77,13 @@ async function runInCtx<T>(fn: () => Promise<T>): Promise<T> {
 
 describe('ChatController', () => {
   let res: ReturnType<typeof makeRes>;
+  let config: ConfigService;
+  let logger: AppLoggerService;
 
   beforeEach(() => {
     res = makeRes();
+    config = makeConfig();
+    logger = makeLogger();
   });
 
   describe('正常场景', () => {
@@ -70,7 +94,7 @@ describe('ChatController', () => {
         { type: 'disclaimer', text: '免责声明' },
         { type: 'done', traceId: 'trace-1' },
       ];
-      const controller = new ChatController(makeOrchestrator(frames) as never);
+      const controller = new ChatController(makeOrchestrator(frames) as never, logger, config);
       await runInCtx(() => controller.chat({ message: '你好' }, mockUser as never, res as never));
       // SSE 头
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/event-stream');
@@ -85,7 +109,7 @@ describe('ChatController', () => {
 
     it('sessionId 缺省时用 traceId 派生', async () => {
       const orch = makeOrchestrator([{ type: 'done', traceId: 'trace-1' }]);
-      const controller = new ChatController(orch as never);
+      const controller = new ChatController(orch as never, logger, config);
       await runInCtx(() => controller.chat({ message: '问题' }, mockUser as never, res as never));
       // orchestrate 入参 ctx.sessionId 应为 traceId
       const ctxArg = orch.orchestrate.mock.calls[0][1];
@@ -95,7 +119,7 @@ describe('ChatController', () => {
 
   describe('边界场景：入参校验', () => {
     it('空 message → BadRequestException(code:1001)', async () => {
-      const controller = new ChatController(makeOrchestrator([]) as never);
+      const controller = new ChatController(makeOrchestrator([]) as never, logger, config);
       await expect(
         runInCtx(() => controller.chat({ message: '' }, mockUser as never, res as never)),
       ).rejects.toThrow(BadRequestException);
@@ -103,14 +127,14 @@ describe('ChatController', () => {
     });
 
     it('纯空白 message → BadRequestException', async () => {
-      const controller = new ChatController(makeOrchestrator([]) as never);
+      const controller = new ChatController(makeOrchestrator([]) as never, logger, config);
       await expect(
         runInCtx(() => controller.chat({ message: '   ' }, mockUser as never, res as never)),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('超长 message → BadRequestException(code:1002)', async () => {
-      const controller = new ChatController(makeOrchestrator([]) as never);
+      const controller = new ChatController(makeOrchestrator([]) as never, logger, config);
       const longMsg = 'a'.repeat(CHAT_MESSAGE_MAX_LEN + 1);
       await expect(
         runInCtx(() => controller.chat({ message: longMsg }, mockUser as never, res as never)),
@@ -120,7 +144,11 @@ describe('ChatController', () => {
 
   describe('异常场景：Orchestrator 抛错', () => {
     it('orchestrate 抛错 → error 帧 + done 帧 + res.end，不抛出', async () => {
-      const controller = new ChatController(makeOrchestrator([], { fail: true }) as never);
+      const controller = new ChatController(
+        makeOrchestrator([], { fail: true }) as never,
+        logger,
+        config,
+      );
       await runInCtx(() => controller.chat({ message: '问题' }, mockUser as never, res as never));
       // 写入 error + done 两帧
       expect(res.write).toHaveBeenCalledTimes(2);

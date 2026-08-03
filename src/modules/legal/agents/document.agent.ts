@@ -21,14 +21,15 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { BaseAgent } from './base.agent';
 import type { AgentCard, AgentContext, AgentInvokeInput, AgentInvokeOutput } from './types';
-import type { PiiService } from '../../platform/pii/pii.service';
-import type { AuditLogService } from '../../platform/audit/audit-log.service';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { PiiService } from '../../platform/pii/pii.service';
+import { AuditLogService } from '../../platform/audit/audit-log.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import type {
   DocumentGeneratorService,
   DocumentGenerateDto,
 } from '../document/document-generator.service';
-import type { ExportService, ExportFormat } from '../export/export.service';
+import { ExportService } from '../export/export.service';
+import type { ExportFormat } from '../export/export.service';
 import { DISCLAIMER_TEXT } from '../chat/sse-frames';
 
 const CARD: AgentCard = {

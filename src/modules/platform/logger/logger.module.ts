@@ -27,6 +27,19 @@ import { AppLoggerService } from './logger.service';
           // 关闭默认的 autoLogging，避免与 ResponseInterceptor 重复打 access log
           autoLogging: false,
           customLogLevel: () => 'info',
+          // 脱敏：请求头凭据 / cookie / 敏感请求体字段 / 响应 set-cookie 不落日志
+          redact: {
+            paths: [
+              'req.headers.authorization',
+              'req.headers.cookie',
+              'req.body.password',
+              'req.body.token',
+              'req.body.accessToken',
+              'req.body.refreshToken',
+              'res.headers["set-cookie"]',
+            ],
+            censor: '[REDACTED]',
+          },
           serializers: {
             req: (r: { method?: string; url?: string }) => ({
               method: r.method,

@@ -16,7 +16,9 @@
  */
 import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { validationSchema } from './app-config/validation.schema';
 import appConfig from './app-config/configuration';
 import { DatabaseModule } from './infra/database/database.module';
@@ -37,6 +39,16 @@ import { TraceContextMiddleware } from './common/middleware/trace-context.middle
         abortEarly: false, // 报告所有错误而非首个
       },
     }),
+    // 全局 IP 级限流（@SkipThrottle 已在 /v1/chat SSE 与 /health 上豁免）
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.get<number>('app.throttle.ttlMs') ?? 60_000,
+          limit: config.get<number>('app.throttle.limit') ?? 100,
+        },
+      ],
+    }),
     DatabaseModule,
     RedisModule,
     PlatformModule,
@@ -44,6 +56,7 @@ import { TraceContextMiddleware } from './common/middleware/trace-context.middle
     LegalModule,
     HealthModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

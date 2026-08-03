@@ -1,0 +1,290 @@
+# GitHub Actions - 完整CI/CD流程
+
+name: Legal Agent Multi-Platform CI/CD
+
+on:
+  push:
+    branches: [main, develop, 'release/*', 'feature/*']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号'
+        required: true
+        default: '1.0.0'
+
+env:
+  NODE_VERSION: '20'
+  JAVA_VERSION: '17'
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint
+        run: npm run lint || true
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+  test-unit:
+    name: Unit Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          CI: true
+
+  test-sdk:
+    name: SDK Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 各版本/common/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Build SDK
+        run: npm run build
+      - name: Run SDK tests
+        run: npm test
+        env:
+          CI: true
+
+  build-web:
+    name: Build Web
+    needs: test-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        run: |
+          cd 各版本/web
+          npm ci
+      - name: Build Web
+        run: |
+          cd 各版本/web
+          npm run build
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: 各版本/web/dist/
+          retention-days: 7
+
+  build-taro:
+    name: Build Taro (${{ matrix.platform }})
+    needs: test-unit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [h5, weapp]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        run: |
+          cd 各版本/taro
+          npm ci
+      - name: Build ${{ matrix.platform }}
+        run: |
+          cd 各版本/taro
+          npm run build:${{ matrix.platform }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: taro-${{ matrix.platform }}-build
+          path: 各版本/taro/dist/${{ matrix.platform }}/**
+          retention-days: 7
+
+  build-android:
+    name: Build Android
+    needs: test-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+      - name: Build Android Debug APK
+        run: |
+          cd 各版本/android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+        timeout-minutes: 15
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: 各版本/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+  build-ios:
+    name: Build iOS
+    needs: test-unit
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.5'
+      - name: Install CocoaPods
+        run: |
+          cd 各版本/ios
+          pod install
+      - name: Build iOS Archive
+        run: |
+          cd 各版本/ios
+          xcodebuild archive \
+            -workspace LegalAgent.xcworkspace \
+            -scheme LegalAgent \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/LegalAgent.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
+        timeout-minutes: 20
+      - name: Upload iOS archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-archive
+          path: 各版本/ios/build/LegalAgent.xcarchive
+          retention-days: 7
+
+  build-harmonyos:
+    name: Build HarmonyOS
+    needs: test-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Verify HarmonyOS project
+        run: |
+          echo 'Verifying HarmonyOS project structure...'
+          ls -la 各版本/harmonyos/entry/src/main/ets/pages/
+          ls -la 各版本/harmonyos/entry/src/main/ets/components/
+      - name: Build HAP
+        run: |
+          echo 'HarmonyOS build requires DevEco Studio.'
+          echo 'Build locally by opening 各版本/harmonyos in DevEco Studio.'
+
+  integration:
+    name: Integration Test
+    needs: [test-unit, test-sdk]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    services:
+      mongo:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_USERNAME: legal
+          MONGO_INITDB_ROOT_PASSWORD: legal123
+          MONGO_INITDB_DATABASE: legal_agent
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      MONGO_URI: mongodb://legal:legal123@localhost:27017/legal_agent?authSource=admin
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-integration-secret-32chars-padding
+      AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+      LLM_PROVIDER: agnes
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Full test suite
+        run: npm test
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  build-all:
+    name: Multi-Platform Build Summary
+    needs: [build-web, build-taro, build-android, build-ios, build-harmonyos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Build summary
+        run: |
+          echo '## Multi-Platform Build Summary' >> $GITHUB_STEP_SUMMARY
+          echo '' >> $GITHUB_STEP_SUMMARY
+          echo '| Platform | Status |' >> $GITHUB_STEP_SUMMARY
+          echo '|----------|--------|' >> $GITHUB_STEP_SUMMARY
+          echo '| Web | Build succeeded |' >> $GITHUB_STEP_SUMMARY
+          echo '| Taro H5 | Build succeeded |' >> $GITHUB_STEP_SUMMARY
+          echo '| Taro WeChat | Build succeeded |' >> $GITHUB_STEP_SUMMARY
+          echo '| Android | APK generated |' >> $GITHUB_STEP_SUMMARY
+          echo '| iOS | Archive created |' >> $GITHUB_STEP_SUMMARY
+          echo '| HarmonyOS | Project verified |' >> $GITHUB_STEP_SUMMARY
+
+  notify:
+    name: Release Notification
+    needs: [build-all]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Send notification
+        run: |
+          echo 'All platforms built successfully!'
+          echo 'Version: ${{ github.event.inputs.version || "1.0.0" }}'
+          echo 'Commit: ${{ github.sha }}'

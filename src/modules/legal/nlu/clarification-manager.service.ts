@@ -19,14 +19,14 @@
  */
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import { randomUUID } from 'crypto';
 import {
   ClarificationSession,
   type ClarificationSessionDocument,
   type ClarificationState,
 } from '../../../infra/database/schemas/clarification-session.schema';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
+import { AppLoggerService } from '../../platform/logger/logger.service';
 import type { IntentType } from '../../../types/intent';
 import type {
   ClarificationCard,
@@ -299,7 +299,7 @@ export class ClarificationManagerService {
             intent: doc.intent as IntentType,
             requiredSlots: doc.requiredSlots ?? [],
             filledSlots: doc.filledSlots ?? {},
-            state: doc.state,
+            state: doc.state as ClarificationState,
             turns: doc.turns ?? 0,
             offTopicCount: doc.offTopicCount ?? 0,
             expireAt: doc.expireAt,
@@ -450,7 +450,7 @@ export class ClarificationManagerService {
           intent: doc.intent as IntentType,
           requiredSlots: doc.requiredSlots ?? [],
           filledSlots: doc.filledSlots ?? {},
-          state: doc.state,
+          state: doc.state as ClarificationState,
           turns: doc.turns ?? 0,
           offTopicCount: doc.offTopicCount ?? 0,
           expireAt: doc.expireAt,

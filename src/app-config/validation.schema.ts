@@ -17,16 +17,19 @@ export const validationSchema = Joi.object({
   REDIS_URL: Joi.string().required().description('Redis 连接字符串'),
   REDIS_KEY_PREFIX: Joi.string().default('legal:'),
 
-  // JWT
-  JWT_SECRET: Joi.string().min(16).required().description('JWT 签名密钥'),
+  // JWT（强制 ≥32 字符，杜绝弱密钥；与 PII 派生链路同源风险隔离）
+  JWT_SECRET: Joi.string().min(32).required().description('JWT 签名密钥（≥32 字符）'),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('30d'),
 
   // LLM
-  LLM_PROVIDER: Joi.string().valid('agnes', 'qwen').default('agnes'),
+  LLM_PROVIDER: Joi.string().valid('agnes', 'qwen', 'zhipu').default('agnes'),
   AGNES_API_KEY: Joi.string().allow('').default(''),
   AGNES_BASE_URL: Joi.string().default('https://apihub.agnes-ai.com/v1'),
   AGNES_DEFAULT_MODEL: Joi.string().default('agnes-2.0-flash'),
+  ZHIPU_API_KEY: Joi.string().allow('').default(''),
+  ZHIPU_BASE_URL: Joi.string().default('https://open.bigmodel.cn/api/paas/v4'),
+  ZHIPU_DEFAULT_MODEL: Joi.string().default('glm-4.7-flash'),
   LLM_TIMEOUT_MS: Joi.number().default(30000),
   LLM_MAX_RETRIES: Joi.number().default(3),
   LLM_RETRY_BASE_DELAY_MS: Joi.number().default(1000),
@@ -50,4 +53,19 @@ export const validationSchema = Joi.object({
 
   // 日志级别
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
+
+  // Phase 2 A5 关键项：CORS / Swagger / Throttle
+  CORS_ORIGINS: Joi.string().allow('').default('').description('逗号分隔的允许源，空=允许所有'),
+  SWAGGER_ENABLED: Joi.string().valid('true', 'false').default('true'),
+  SWAGGER_PATH: Joi.string().default('/docs'),
+  THROTTLE_TTL_MS: Joi.number().integer().min(1000).default(60_000),
+  THROTTLE_LIMIT: Joi.number().integer().min(1).default(100),
+  THROTTLE_DAILY_LIMIT: Joi.number().integer().min(1).default(10_000),
+
+  // v2.4：视觉模型（图像识别多模型主备切换）
+  VISION_PRIMARY_MODEL: Joi.string().default('glm-4v-flash'),
+  VISION_FALLBACK_MODEL: Joi.string().default('glm-4v-plus'),
+  VISION_TIMEOUT_MS: Joi.number().integer().min(1000).default(30_000),
+  VISION_MAX_RETRIES: Joi.number().integer().min(0).default(2),
+  VISION_COOLDOWN_MS: Joi.number().integer().min(1000).default(30_000),
 });

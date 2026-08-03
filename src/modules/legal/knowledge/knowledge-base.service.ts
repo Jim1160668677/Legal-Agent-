@@ -13,14 +13,25 @@
  */
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import {
   LegalKnowledge,
   type LegalKnowledgeDocument,
 } from '../../../infra/database/schemas/legal.schema';
-import type { AppLoggerService } from '../../platform/logger/logger.service';
-import type { KnowledgeResult, LegalKnowledgeLean } from './knowledge.types';
-import { toKnowledgeResult, scoreByKeyword } from './knowledge.types';
+import { AppLoggerService } from '../../platform/logger/logger.service';
+import type {
+  KnowledgeResult,
+  LegalKnowledgeLean,
+  KnowledgeListResult,
+  KnowledgeCategoryInfo,
+  KnowledgeArticleDto,
+} from './knowledge.types';
+import {
+  toKnowledgeResult,
+  toKnowledgeArticleDto,
+  normalizeKnowledgeType,
+  scoreByKeyword,
+} from './knowledge.types';
 
 /** queryByKeyword 默认返回上限 */
 const DEFAULT_KEYWORD_LIMIT = 10;
@@ -74,7 +85,7 @@ export class KnowledgeBaseService {
     try {
       const regex = new RegExp(escapeRegex(kw), 'i');
       const docs = await this.knowledgeModel
-        .find({ $or: [{ title: regex }, { tags: kw }, { content: regex }] })
+        .find({ $or: [{ title: regex }, { tags: { $in: [kw] } }, { content: regex }] })
         .lean<LegalKnowledgeLean[]>()
         .exec();
       return docs
@@ -102,6 +113,102 @@ export class KnowledgeBaseService {
       return doc ? toKnowledgeResult(doc, 1.0) : null;
     } catch (err) {
       this.logger?.warn('getById 查询失败，降级返回 null', {
+        id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 分页列表查询（前端法律知识列表页用）。
+   * 支持 type/category 过滤 + keyword 关键词召回（title/tags/content），复用 escapeRegex 防注入。
+   * 走 idx_type_category 索引，失败降级返回空列表（不阻塞前端）。
+   */
+  async list(opts: {
+    type?: string;
+    category?: string;
+    keyword?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<KnowledgeListResult> {
+    const page = Math.max(1, Math.floor(opts.page ?? 1));
+    const pageSize = Math.min(50, Math.max(1, Math.floor(opts.pageSize ?? 20)));
+    const skip = (page - 1) * pageSize;
+    try {
+      const filter: Record<string, unknown> = {};
+      if (opts.type) filter.type = opts.type;
+      if (opts.category) filter.category = opts.category;
+      const kw = opts.keyword?.trim();
+      if (kw) {
+        const regex = new RegExp(escapeRegex(kw), 'i');
+        filter.$or = [{ title: regex }, { tags: { $in: [kw] } }, { content: regex }];
+      }
+      const [docs, total] = await Promise.all([
+        this.knowledgeModel
+          .find(filter)
+          .sort({ category: 1, title: 1 })
+          .skip(skip)
+          .limit(pageSize)
+          .lean<LegalKnowledgeLean[]>()
+          .exec(),
+        this.knowledgeModel.countDocuments(filter).exec(),
+      ]);
+      return {
+        items: docs.map((d) => toKnowledgeArticleDto(d)),
+        total,
+        page,
+        pageSize,
+      };
+    } catch (err) {
+      this.logger?.warn('list 查询失败，降级返回空', {
+        opts,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return { items: [], total: 0, page, pageSize };
+    }
+  }
+
+  /**
+   * 列出分类聚合（前端知识页分类 tabs 用）。
+   * 按 category 分组，收集每组 types 与计数，按 category 字典序排序。
+   */
+  async listCategories(): Promise<KnowledgeCategoryInfo[]> {
+    try {
+      const rows = await this.knowledgeModel
+        .aggregate<{
+          _id: string;
+          types: string[];
+          count: number;
+        }>([
+          { $group: { _id: '$category', types: { $addToSet: '$type' }, count: { $sum: 1 } } },
+          { $sort: { _id: 1 } },
+        ])
+        .exec();
+      return rows.map((r) => ({
+        category: String(r._id),
+        types: (r.types ?? []).map((t) => normalizeKnowledgeType(t)),
+        count: r.count,
+      }));
+    } catch (err) {
+      this.logger?.warn('listCategories 查询失败，降级返回空', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return [];
+    }
+  }
+
+  /**
+   * 按 id 查询带 id 的对外 DTO（前端知识详情页用）。
+   * 区别于 getById（返回无 id 的 KnowledgeResult），本方法返回 KnowledgeArticleDto。
+   */
+  async getDetailById(id: string): Promise<KnowledgeArticleDto | null> {
+    if (!id) return null;
+    try {
+      const doc = await this.knowledgeModel.findById(id).lean<LegalKnowledgeLean | null>().exec();
+      return doc ? toKnowledgeArticleDto(doc) : null;
+    } catch (err) {
+      this.logger?.warn('getDetailById 查询失败，降级返回 null', {
         id,
         error: err instanceof Error ? err.message : String(err),
       });
