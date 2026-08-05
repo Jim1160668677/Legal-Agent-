@@ -10,8 +10,8 @@ import { LegalAgentClient } from '@legal-agent/sdk'
 
 const { Title, Text } = Typography
 
-// 从环境变量获取API地址，默认使用开发环境
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+// 从环境变量获取API地址，Vercel部署时使用相对路径
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 export default function Login() {
   const navigate = useNavigate()

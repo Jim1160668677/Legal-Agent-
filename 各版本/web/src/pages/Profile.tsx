@@ -26,9 +26,8 @@ import {
   MessageOutlined,
   HistoryOutlined,
   BellOutlined,
-  ShieldOutlined,
+  SafetyOutlined,
   LogoutOutlined,
-  DeleteOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 
@@ -129,7 +128,7 @@ export default function Profile() {
           <List
             dataSource={[
               { key: 'notifications', icon: <BellOutlined />, title: '消息通知', desc: '开启新消息提醒' },
-              { key: 'security', icon: <ShieldOutlined />, title: '账号安全', desc: '修改密码、绑定手机' },
+              { key: 'security', icon: <SafetyOutlined />, title: '账号安全', desc: '修改密码、绑定手机' },
               { key: 'privacy', icon: <SettingOutlined />, title: '隐私设置', desc: '管理个人数据' },
             ]}
             renderItem={(item) => (

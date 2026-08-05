@@ -27,7 +27,7 @@ import LawCitation from '../components/LawCitation'
 
 const { Title, Text } = Typography
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 const client = new LegalAgentClient({ baseUrl: API_BASE_URL })
 
 // 热门搜索词

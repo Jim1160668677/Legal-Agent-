@@ -10,13 +10,14 @@ import rehypeRaw from 'rehype-raw'
 import { useChatStore } from '../stores/chatStore'
 import { useAuthStore } from '../stores/authStore'
 import { LegalAgentClient, type ChatMessage, type ChatSession } from '@legal-agent/sdk'
-import ChatList from './ChatList'
-import LawCitation from './LawCitation'
-import { ChatSkeleton } from './Skeleton'
+import ChatList from '../components/ChatList'
+import LawCitation from '../components/LawCitation'
+import { ChatSkeleton } from '../components/Skeleton'
 
 const { Text } = Typography
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+// Vercel 部署时使用相对路径，API 请求会发到同一域名
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 const client = new LegalAgentClient({ baseUrl: API_BASE_URL })
 
 export default function Chat() {

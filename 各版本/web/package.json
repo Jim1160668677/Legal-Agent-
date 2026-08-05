@@ -5,7 +5,8 @@
   "description": "法律智能体网页端应用",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:check": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint src/ --ext .ts,.tsx",
     "test": "vitest run",

@@ -1,0 +1,44 @@
+# Vercel 部署排除文件
+# 排除测试文件
+tests/
+**/tests/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# 排除开发相关
+.vscode/
+.idea/
+*.log
+.env
+.env.local
+.env.*.local
+
+# 排除文档
+docs/
+**/*.md
+!README.md
+
+# 排除其他版本（Android/iOS/Harmony/WeChat等）
+各版本/android/
+各版本/ios/
+各版本/harmonyos/
+各版本/wechat-miniapp/
+
+# 排除脚本
+scripts/
+
+# 排除配置文件
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# 排除 Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 排除 CI/CD
+.github/
