@@ -39,6 +39,7 @@ export function parseChineseNumeral(s: string): number {
   if (!s) return NaN;
 
   const trimmed = s.trim();
+  if (!trimmed) return NaN;
 
   // 纯阿拉伯数字直接返回
   if (/^\d+$/.test(trimmed)) {

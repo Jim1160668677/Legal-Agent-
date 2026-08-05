@@ -8,9 +8,16 @@ export default tseslint.config(
     ignores: [
       'dist/',
       'node_modules/',
+      '**/node_modules/',
+      '**/dist/',
       'coverage/',
       'reports/',
       'docs/',
+      // 各版本/ 是独立的客户端子项目（web/taro/wechat-miniapp/android/ios/harmonyos），
+      // 各自维护自己的 lint 配置与 node_modules/dist，根 lint 不应扫描
+      '各版本/**',
+      // .agnes/ 是 Agent 工具辅助目录（CommonJS 脚本），不属于后端源码
+      '.agnes/**',
       // scripts/*.js 是 CommonJS 工具脚本（require/__dirname/console 是合理的），
       // 不应走 TS ESLint 规则
       'scripts/**/*.js',
@@ -39,7 +46,7 @@ export default tseslint.config(
   },
   {
     // 测试与脚本允许 console（用于调试输出与性能报告）
-    files: ['tests/**/*.ts', 'src/scripts/**/*.ts'],
+    files: ['tests/**/*.ts', 'src/scripts/**/*.ts', 'scripts/**/*.ts'],
     rules: {
       'no-console': 'off',
     },

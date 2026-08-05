@@ -828,6 +828,7 @@ describe('v2.3-W5 IracReasonerService（IRAC 四步推理编排）', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
         chainModel as never,
         logger as never,
       );
@@ -1067,6 +1068,240 @@ describe('v2.3-W5 IracReasonerService（IRAC 四步推理编排）', () => {
       });
 
       expect(result.issues.length).toBe(1);
+    });
+  });
+
+  describe('v3.0 律师专业知识融合（expertise injection）', () => {
+    /** 构造 mock 律师专业知识服务 */
+    function makeExpertiseService() {
+      return {
+        buildInjectionContext: vi.fn(),
+        recordUsage: vi.fn().mockResolvedValue(undefined),
+        getById: vi.fn(),
+        query: vi.fn(),
+      };
+    }
+
+    function makeInjectedLlm() {
+      return makeLlmSequence([
+        {
+          content: JSON.stringify({
+            issues: [{ issueText: '劳动报酬争议', issueType: 'labor_dispute', relatedLaws: [] }],
+          }),
+        },
+        {
+          content: JSON.stringify({
+            summary: '结论',
+            confidence: 0.6,
+            riskLevel: 'medium',
+            lawRefs: [],
+          }),
+        },
+      ]);
+    }
+
+    /** 四个步骤都命中专业知识 */
+    function makeFullExpertiseService() {
+      const svc = makeExpertiseService();
+      svc.buildInjectionContext.mockImplementation(async (step: string) => ({
+        injectedExpertise: [
+          {
+            expertiseId: `le_${step}`,
+            title: `律师${step}经验`,
+            expertiseType: 'case_analysis',
+          },
+        ],
+        injectionPrompt: `【${step}】律师专业经验注入`,
+      }));
+      return svc;
+    }
+
+    /** 提供 RagService 召回法条，保证 Application 步骤可执行 */
+    function makeRagWithLaw() {
+      return makeRag([{ id: 'art-001', content: '法条内容', meta: { status: 'effective' } }]);
+    }
+
+    it('注入专业知识 → 四个步骤全部记录 + 返回 expertiseApplied/professionalJudgmentNote', async () => {
+      const llm = makeInjectedLlm();
+      const expertiseSvc = makeFullExpertiseService();
+      const chainModel = makeChainModel();
+      const svc = new IracReasonerService(
+        llm as never,
+        makeRagWithLaw(),
+        makeLawApplicationDeterminer(),
+        undefined,
+        expertiseSvc as never,
+        chainModel as never,
+        logger as never,
+      );
+
+      const result = await svc.reason({
+        caseDescription: '劳动者主张工资差额',
+        entities: makeEntities(),
+        ctx: makeCtx(),
+      });
+
+      // 四步都被调用 buildInjectionContext
+      expect(expertiseSvc.buildInjectionContext).toHaveBeenCalledTimes(4);
+      const steps = expertiseSvc.buildInjectionContext.mock.calls.map((c) => c[0]);
+      expect(steps).toEqual(['issue', 'rule', 'application', 'conclusion']);
+
+      // expertiseApplied 覆盖四个步骤
+      expect(result.expertiseApplied).toBeDefined();
+      const appliedSteps = (result.expertiseApplied ?? []).map((e) => e.iracStep);
+      expect(appliedSteps).toEqual(['issue', 'rule', 'application', 'conclusion']);
+      expect(result.expertiseApplied?.[0]).toMatchObject({
+        expertiseId: 'le_issue',
+        influenceScore: 0.7,
+        source: 'auto_matched',
+      });
+
+      // professionalJudgmentNote 生成
+      expect(result.professionalJudgmentNote?.significantlyInfluenced).toBe(true);
+      expect(result.professionalJudgmentNote?.stepDetails.length).toBe(4);
+
+      // reasoning_chain 持久化携带 v3.0 字段
+      expect(chainModel.create).toHaveBeenCalledTimes(1);
+      const persisted = chainModel.create.mock.calls[0][0];
+      expect(persisted.lawyerExpertiseApplied.length).toBe(4);
+      expect(persisted.reasoningTrace.length).toBe(4);
+      expect(persisted.professionalJudgmentNote).toBeDefined();
+    });
+
+    it('异步记录专业知识使用情况（recordUsage 被调用，不阻塞主流程）', async () => {
+      const llm = makeInjectedLlm();
+      const expertiseSvc = makeFullExpertiseService();
+      const chainModel = makeChainModel();
+      const svc = new IracReasonerService(
+        llm as never,
+        makeRagWithLaw(),
+        makeLawApplicationDeterminer(),
+        undefined,
+        expertiseSvc as never,
+        chainModel as never,
+        logger as never,
+      );
+
+      const result = await svc.reason({
+        caseDescription: '劳动者主张工资差额',
+        entities: makeEntities(),
+        ctx: makeCtx(),
+      });
+
+      expect(result.reasoningChainId).toBeDefined();
+      // 等待异步 recordUsage 完成
+      await vi.waitFor(() => {
+        expect(expertiseSvc.recordUsage).toHaveBeenCalledTimes(4);
+      });
+      const firstCall = expertiseSvc.recordUsage.mock.calls[0];
+      expect(firstCall[0]).toBe('le_issue');
+      expect(firstCall[1]).toBe(result.reasoningChainId);
+      expect(firstCall[2]).toBe('issue');
+    });
+
+    it('recordUsage 抛异常不阻塞主流程（静默失败）', async () => {
+      const llm = makeInjectedLlm();
+      const expertiseSvc = makeFullExpertiseService();
+      expertiseSvc.recordUsage.mockRejectedValue(new Error('记录失败'));
+      const chainModel = makeChainModel();
+      const svc = new IracReasonerService(
+        llm as never,
+        makeRagWithLaw(),
+        makeLawApplicationDeterminer(),
+        undefined,
+        expertiseSvc as never,
+        chainModel as never,
+        logger as never,
+      );
+
+      const result = await svc.reason({
+        caseDescription: '劳动者主张工资差额',
+        entities: makeEntities(),
+        ctx: makeCtx(),
+      });
+
+      expect(result.expertiseApplied?.length).toBe(4);
+      expect(result.warnings.some((w) => w.includes('记录'))).toBe(false);
+    });
+
+    it('专业知识注入失败 → 降级为无注入 + warning，不影响主流程', async () => {
+      const llm = makeInjectedLlm();
+      const expertiseSvc = makeExpertiseService();
+      expertiseSvc.buildInjectionContext.mockRejectedValue(new Error('知识库不可用'));
+      const svc = new IracReasonerService(
+        llm as never,
+        undefined,
+        undefined,
+        undefined,
+        expertiseSvc as never,
+        undefined,
+        logger as never,
+      );
+
+      const result = await svc.reason({
+        caseDescription: '劳动者主张工资差额',
+        entities: makeEntities(),
+        ctx: makeCtx(),
+      });
+
+      expect(result.expertiseApplied).toBeUndefined();
+      expect(result.professionalJudgmentNote).toBeUndefined();
+      expect(logger.warn).toHaveBeenCalledWith(
+        '构建律师专业知识注入上下文失败',
+        expect.anything(),
+      );
+    });
+
+    it('律师专业知识服务未注入 → 不调用、无注入、reasoning_chain 无 v3.0 字段', async () => {
+      const llm = makeInjectedLlm();
+      const chainModel = makeChainModel();
+      const svc = new IracReasonerService(
+        llm as never,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        chainModel as never,
+        logger as never,
+      );
+
+      const result = await svc.reason({
+        caseDescription: '劳动者主张工资差额',
+        entities: makeEntities(),
+        ctx: makeCtx(),
+      });
+
+      expect(result.expertiseApplied).toBeUndefined();
+      expect(result.professionalJudgmentNote).toBeUndefined();
+      const persisted = chainModel.create.mock.calls[0][0];
+      expect(persisted.lawyerExpertiseApplied).toEqual([]);
+      expect(persisted.reasoningTrace).toEqual([]);
+      expect(persisted.professionalJudgmentNote?.stepDetails).toEqual([]);
+    });
+
+    it('injectionPrompt 注入到 LLM system prompt（Issue 步）', async () => {
+      const llm = makeInjectedLlm();
+      const expertiseSvc = makeFullExpertiseService();
+      const svc = new IracReasonerService(
+        llm as never,
+        makeRagWithLaw(),
+        makeLawApplicationDeterminer(),
+        undefined,
+        expertiseSvc as never,
+        undefined,
+        logger as never,
+      );
+
+      await svc.reason({
+        caseDescription: '劳动者主张工资差额',
+        entities: makeEntities(),
+        ctx: makeCtx(),
+      });
+
+      const issueCall = llm.generate.mock.calls[0];
+      const systemPrompt = issueCall[0][0].content as string;
+      expect(systemPrompt).toContain('【律师专业经验参考】');
+      expect(systemPrompt).toContain('【issue】律师专业经验注入');
     });
   });
 });

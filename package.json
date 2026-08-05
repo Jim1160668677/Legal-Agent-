@@ -48,7 +48,10 @@
     "start:dev": "node --watch -r @swc-node/register src/main.ts",
     "test": "vitest run",
     "test:agnes": "vitest run tests/integration/agnes/ tests/e2e/",
-    "test:unit": "vitest run tests/unit/"
+    "test:unit": "vitest run tests/unit/",
+    "build:vercel": "cd 各版本/common/sdk && npm install && npm run build && cd ../web && npm install && npm run build",
+    "deploy:vercel": "vercel --prod",
+    "seed:lawyer-expertise": "node -r @swc-node/register scripts/seed-lawyer-expertise.ts"
   },
   "private": true,
   "engines": {
