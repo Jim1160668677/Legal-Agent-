@@ -32,4 +32,4 @@ export interface AuthResult {
   isNewUser: boolean;
 }
 
-export type UserRole = 'user' | 'ops' | 'audit' | 'admin';
+export type UserRole = 'user' | 'lawyer' | 'ops' | 'audit' | 'admin';

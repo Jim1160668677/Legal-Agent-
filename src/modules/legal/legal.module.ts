@@ -1,26 +1,28 @@
 /**
- * LegalModule —— 法律域业务模块汇总（A1-W3 + A3-W3 + A4-W2 扩展）。
+ * LegalModule —— 法律域业务模块汇总（v3.0 增强版）。
  *
- * 集中导入法律域服务，便于 AppModule 一次挂载。
+ * v3.0 新增：
+ *   - ReviewModule 导入（PrePublishReviewService + ExpertiseQualityScorer）
+ *   - LegalExpertiseController 注册
  *
  * 模块演进：
- *   - A1-W3：IntentRouter / RuleEngine / MemoryManager（原内联 providers）
+ *   - A1-W3：IntentRouter / RuleEngine / MemoryManager
  *   - A1-W4：Orchestrator + ChatController + LlmModule
  *   - A2-W1+：KnowledgeBaseModule / EmbeddingModule / RagModule
- *   - A3-W2：DocumentModule（DocumentGenerator）
- *   - A3-W3+：DocumentModule 扩展（DocumentRecord + DocumentController + ExportService）+ JobModule
- *   - A4-W1：AgentsModule（AgentRegistry + 横切依赖）
- *   - A4-W2：RuleEngine / Memory / Intent 抽出独立模块，7 核心 Agent 在 AgentsModule 注册
- *   - A4-W3：OrchestratorAgent 加入编排（AgentsModule 导出 OrchestratorAgent 供 ChatController 调用）
+ *   - A3-W2：DocumentModule
+ *   - A3-W3+：DocumentModule 扩展 + JobModule
+ *   - A4-W1：AgentsModule
+ *   - A4-W2：RuleEngine / Memory / Intent 独立模块
+ *   - A4-W3：OrchestratorAgent 加入编排
+ *   - v2.3-W5：ReasoningModule 注册
+ *   - v3.0：律师专业判断深度整合（ReviewModule + LegalExpertiseController）
  *
- * JobController 在本模块声明（避免在 DocumentModule + LegalModule 双导入 JobModule 时
- * controller 路由被重复注册）。
- *
- * 设计依据：A1 §三 NestJS 工程结构；A3 §十二；A4 §五 5.3 横切注入。
+ * 设计依据：A1 §三；v3.0 律师专业判断深度整合需求。
  */
 import { Module } from '@nestjs/common';
 import { LoggerModule } from '../platform/logger/logger.module';
 import { AuditModule } from '../platform/audit/audit.module';
+import { AuthModule } from '../auth/auth.module';
 import { IntentModule } from './intent/intent.module';
 import { RuleEngineModule } from './rule/rule-engine.module';
 import { MemoryModule } from './memory/memory.module';
@@ -39,34 +41,36 @@ import { AgentsController } from './agents/agents.controller';
 import { NluModule } from './nlu/nlu.module';
 import { ReasoningModule } from './reasoning/reasoning.module';
 import { VisionModule } from './vision/vision.module';
+import { ReviewModule } from './review/review.module';
+import { LegalExpertiseController } from './legal-expertise.controller';
 
 @Module({
   imports: [
     LoggerModule,
     AuditModule,
+    AuthModule, // RolesGuard/AuthService 供 LegalExpertiseController @UseGuards 注入
     LlmModule,
     IntentModule,
     RuleEngineModule,
     MemoryModule,
     DocumentModule,
     KnowledgeBaseModule,
-    // v2.3-W3 新增：法条引用图谱（CitationGraphBuilderService）
     CitationGraphModule,
     EmbeddingModule,
     RagModule,
     JobModule,
-    // v2.3-W4 新增：NLU 域（EntityExtractor + ClarificationManager + CompoundIntentSplitter）
     NluModule,
-    // v2.3-W5 新增：推理域（IracReasoner + FactSimilarity + LawApplicationDeterminer + CaseComparator）
     ReasoningModule,
-    // A4-W1 新增：Agent 域（AgentRegistry + 横切依赖）
-    // A4-W2 扩展：7 核心 Agent 在此模块内注册
-    // A4-W3 扩展：OrchestratorAgent 加入编排
     AgentsModule,
-    // v2.4：视觉模型（图像识别多模型主备切换）
     VisionModule,
+    ReviewModule, // v3.0 新增：审核评估闭环
   ],
-  controllers: [ChatController, JobController, AgentsController],
+  controllers: [
+    ChatController,
+    JobController,
+    AgentsController,
+    LegalExpertiseController, // v3.0 新增
+  ],
   providers: [OrchestratorService],
   exports: [
     OrchestratorService,
@@ -76,6 +80,7 @@ import { VisionModule } from './vision/vision.module';
     AgentsModule,
     NluModule,
     ReasoningModule,
+    ReviewModule, // v3.0 新增
   ],
 })
 export class LegalModule {}

@@ -1,32 +1,19 @@
 /**
- * IracReasonerService —— IRAC 四步法律推理编排（v2.3-W5，16 §2）。
+ * IracReasonerService —— IRAC 四步法律推理编排（v3.0 增强版）。
  *
- * 推理步骤（16 §2.1-2.4）：
- *   1. Issue（争议点识别）：
- *      - 输入：用户问题 + 实体抽取结果（来自 nlu Agent EntityExtractor）
- *      - LLM prompt → issues[] = { issueText, issueType, relatedLaws[] }
- *      - 后处理：relatedLaws 核实（RagService 召回比对）+ issueType 归一化 + 空降级（关键词匹配）
- *   2. Rule（法条规则抽取）：
- *      - for issue: recallKey = issueText + issueType
- *      - articles = RagService.retrieve({ text: recallKey, collections: ['law_article'], finalTopK: 5 })
- *      - 扩展召回：CitationGraphBuilder.getGraph(articleId) 找引用关系法条
- *      - 时效校验：过滤 status=repealed + warnings
- *      - parseArticle：article.structured.conditions 已有→直接用；否则标记待 LLM 抽取
- *      - 输出 rules[] = { articleId, articleText, conditions[], legalConsequences[] }
- *   3. Application（事实映射）：
- *      - for rule: LawApplicationDeterminer.determine(rule, factEntities)
- *      - 输出 applications[] = { ruleId, factMatch, matchedFacts[], unmatchedFacts[] }
- *   4. Conclusion（综合结论）：
- *      - LLM prompt（含 applications[] JSON）→ conclusion = { summary, confidence, riskLevel, disclaimer, lawRefs[] }
- *      - 后处理：confidence ∈ [0,1]；riskLevel 枚举；强制附加免责声明；lawRefs 聚合
- *      - 写入 reasoning_chain 集合
+ * v3.0 增强：
+ *   - 集成律师专业知识库（LawyerExpertiseKnowledgeBaseService）
+ *   - 在每个 IRAC 步骤融合律师专业判断
+ *   - 记录专业判断应用过程（lawyerExpertiseApplied / professionalJudgmentNote）
+ *   - 生成推理追踪节点（reasoningTrace）支持可视化
  *
- * 降级策略（16 §7）：
- *   - LLM 全失败 → 跳过 IRAC，仅返回 RagService 召回法条 + 案例列表 + 免责声明（degraded='llm_unavailable'）
- *   - LLM 仅 Application 失败 → 跳过 Application，Conclusion 基于规则匹配，confidence 降至 0.3（degraded='application_skipped'）
- *   - reasoning_chain 写入失败 → 结果仍返回，reasoningChainId 为空 + 告警
+ * 推理步骤：
+ *   1. Issue（争议点识别）+ 律师案例分析/实务经验注入
+ *   2. Rule（法条规则抽取）+ 律师法条适用经验注入
+ *   3. Application（事实映射）+ 律师论证方法/经验规则注入
+ *   4. Conclusion（综合结论）+ 律师风险评估/辩护策略注入
  *
- * 设计依据：16 §2 IRAC 推理框架；07 §9.1；04 §1.12 IracReasoner。
+ * 设计依据：16 §2 IRAC 推理框架；v3.0 律师专业判断深度整合需求。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -37,6 +24,7 @@ import type { ChatMessage } from '../../../types/llm';
 import { LLM_SERVICE_TOKEN } from '../intent/intent-router.service';
 import { RagService } from '../retrieval/rag.service';
 import { CitationGraphBuilderService } from '../knowledge/citation-graph-builder.service';
+import { LawyerExpertiseKnowledgeBaseService } from '../knowledge/lawyer-expertise-knowledge-base.service';
 import { AppLoggerService } from '../../platform/logger/logger.service';
 import type { Entity } from '../nlu/nlu.types';
 import {
@@ -46,6 +34,8 @@ import {
   type ReasoningConclusion,
   type ReasoningIssue,
   type ReasoningRule,
+  type ExpertiseAppliedItem,
+  type ReasoningTraceNode,
 } from '../../../infra/database/schemas/reasoning-chain.schema';
 import type {
   Application,
@@ -89,6 +79,7 @@ export class IracReasonerService {
     @Optional() private readonly rag?: RagService,
     @Optional() private readonly lawApplicationDeterminer?: LawApplicationDeterminerService,
     @Optional() private readonly citationGraph?: CitationGraphBuilderService,
+    @Optional() private readonly lawyerExpertiseService?: LawyerExpertiseKnowledgeBaseService,
     @Optional()
     @InjectModel(ReasoningChain.name)
     private readonly chainModel?: Model<ReasoningChainDocument>,
@@ -96,7 +87,7 @@ export class IracReasonerService {
   ) {}
 
   /**
-   * 执行 IRAC 四步推理。
+   * 执行 IRAC 四步推理（v3.0 增强版，融合律师专业判断）。
    * @returns IracReasonResult，含 issues/rules/applications/conclusion + reasoningChainId
    */
   async reason(input: IracReasonInput): Promise<IracReasonResult> {
@@ -105,20 +96,50 @@ export class IracReasonerService {
     let tokensIn = 0;
     let tokensOut = 0;
 
+    // v3.0 新增：追踪律师专业知识应用情况
+    const expertiseApplied: ExpertiseAppliedItem[] = [];
+    const reasoningTrace: ReasoningTraceNode[] = [];
+    let traceOrder = 0;
+
     // ===== LLM 全失败降级路径（16 §7 第 1 条）=====
     if (!this.llm) {
       warnings.push('LlmService 未注入，跳过 IRAC，仅返回召回结果');
       return this.fallbackNoLlm(caseDescription, ctx, warnings);
     }
 
-    // ===== 步骤 1：Issue 争议点识别（16 §2.1）=====
+    // ===== 步骤 1：Issue 争议点识别（v3.0 增强）=====
     let issues: Issue[] = [];
     try {
-      const issueResult = await this.identifyIssues(caseDescription, question, entities);
+      // v3.0：在 Issue 识别前，先检索律师关于争议点识别的专业经验
+      const issueExpertiseContext = await this.buildExpertiseContextForStep(
+        'issue',
+        undefined, // 此时还不知道 issueType
+        caseDescription,
+        [],
+      );
+
+      const issueResult = await this.identifyIssues(
+        caseDescription,
+        question,
+        entities,
+        issueExpertiseContext?.injectionPrompt,
+      );
       issues = issueResult.issues;
       tokensIn += issueResult.tokensIn;
       tokensOut += issueResult.tokensOut;
       warnings.push(...issueResult.warnings);
+
+      // v3.0：记录应用的专业知识
+      if (issueExpertiseContext && issueExpertiseContext.injectedExpertise.length > 0) {
+        this.recordExpertiseApplication(
+          issueExpertiseContext.injectedExpertise,
+          'issue',
+          expertiseApplied,
+          reasoningTrace,
+          traceOrder++,
+          '补充争议点识别的案例分析和实务经验',
+        );
+      }
     } catch (err) {
       warnings.push(
         `Issue 步骤失败：${err instanceof Error ? err.message : String(err)}，降级为关键词匹配`,
@@ -127,7 +148,6 @@ export class IracReasonerService {
     }
 
     if (issues.length === 0) {
-      // 仍无 issues → 用关键词降级
       issues = this.fallbackIssues(caseDescription);
       if (issues.length === 0) {
         warnings.push('无法识别争议点，返回空推理');
@@ -135,17 +155,44 @@ export class IracReasonerService {
       }
     }
 
-    // ===== 步骤 2：Rule 法条规则抽取（16 §2.2）=====
+    // ===== 步骤 2：Rule 法条规则抽取（v3.0 增强）=====
     let rules: Rule[] = [];
     try {
-      const ruleResult = await this.extractRules(issues, retrievedContext, warnings);
-      rules = ruleResult;
+      // v3.0：获取与识别出的争议点相关的律师法条适用经验
+      const primaryIssueType = issues[0]?.issueType;
+      const relatedLawIds = issues.flatMap((i) => i.relatedLaws);
+
+      const ruleExpertiseContext = await this.buildExpertiseContextForStep(
+        'rule',
+        primaryIssueType,
+        caseDescription,
+        relatedLawIds,
+      );
+
+      rules = await this.extractRules(
+        issues,
+        retrievedContext,
+        warnings,
+        ruleExpertiseContext?.injectionPrompt,
+      );
+
+      // v3.0：记录应用的专业知识
+      if (ruleExpertiseContext && ruleExpertiseContext.injectedExpertise.length > 0) {
+        this.recordExpertiseApplication(
+          ruleExpertiseContext.injectedExpertise,
+          'rule',
+          expertiseApplied,
+          reasoningTrace,
+          traceOrder++,
+          '提供法条适用的实务经验和规则理解',
+        );
+      }
     } catch (err) {
       warnings.push(`Rule 步骤失败：${err instanceof Error ? err.message : String(err)}，规则为空`);
       rules = [];
     }
 
-    // ===== 步骤 3：Application 事实映射（16 §2.3）=====
+    // ===== 步骤 3：Application 事实映射（v3.0 增强）=====
     let applications: Application[] = [];
     let applicationSkipped = false;
     if (rules.length === 0) {
@@ -156,9 +203,34 @@ export class IracReasonerService {
       applicationSkipped = true;
     } else {
       try {
-        const appResult = await this.mapApplications(rules, entities, caseDescription);
+        // v3.0：获取律师论证方法和经验规则
+        const appExpertiseContext = await this.buildExpertiseContextForStep(
+          'application',
+          issues[0]?.issueType,
+          caseDescription,
+          rules.map((r) => r.articleId),
+        );
+
+        const appResult = await this.mapApplications(
+          rules,
+          entities,
+          caseDescription,
+          appExpertiseContext?.injectionPrompt,
+        );
         applications = appResult.applications;
         warnings.push(...appResult.warnings);
+
+        // v3.0：记录应用的专业知识
+        if (appExpertiseContext && appExpertiseContext.injectedExpertise.length > 0) {
+          this.recordExpertiseApplication(
+            appExpertiseContext.injectedExpertise,
+            'application',
+            expertiseApplied,
+            reasoningTrace,
+            traceOrder++,
+            '注入法律论证方法和事实认定经验',
+          );
+        }
       } catch (err) {
         warnings.push(
           `Application 步骤失败：${err instanceof Error ? err.message : String(err)}，跳过 Application`,
@@ -167,9 +239,17 @@ export class IracReasonerService {
       }
     }
 
-    // ===== 步骤 4：Conclusion 综合结论（16 §2.4）=====
+    // ===== 步骤 4：Conclusion 综合结论（v3.0 增强）=====
     let conclusion: Conclusion;
     try {
+      // v3.0：获取律师风险评估和辩护策略
+      const concExpertiseContext = await this.buildExpertiseContextForStep(
+        'conclusion',
+        issues[0]?.issueType,
+        caseDescription,
+        rules.map((r) => r.articleId),
+      );
+
       const concResult = await this.generateConclusion(
         issues,
         rules,
@@ -177,11 +257,24 @@ export class IracReasonerService {
         applicationSkipped,
         caseDescription,
         question,
+        concExpertiseContext?.injectionPrompt,
       );
       conclusion = concResult.conclusion;
       tokensIn += concResult.tokensIn;
       tokensOut += concResult.tokensOut;
       warnings.push(...concResult.warnings);
+
+      // v3.0：记录应用的专业知识
+      if (concExpertiseContext && concExpertiseContext.injectedExpertise.length > 0) {
+        this.recordExpertiseApplication(
+          concExpertiseContext.injectedExpertise,
+          'conclusion',
+          expertiseApplied,
+          reasoningTrace,
+          traceOrder++,
+          '注入风险评估要点和辩护策略建议',
+        );
+      }
     } catch (err) {
       warnings.push(
         `Conclusion 步骤失败：${err instanceof Error ? err.message : String(err)}，使用兜底结论`,
@@ -189,7 +282,13 @@ export class IracReasonerService {
       conclusion = this.fallbackConclusion(rules, applications, applicationSkipped);
     }
 
-    // ===== 持久化 reasoning_chain（16 §6）=====
+    // v3.0：生成专业判断应用说明
+    const professionalJudgmentNote = this.buildProfessionalJudgmentNote(
+      expertiseApplied,
+      reasoningTrace,
+    );
+
+    // ===== 持久化 reasoning_chain（v3.0 增强）=====
     const reasoningChainId = await this.persistChain({
       chainId: this.generateChainId(),
       msgId: ctx.msgId,
@@ -198,6 +297,9 @@ export class IracReasonerService {
       rules,
       applications,
       conclusion,
+      expertiseApplied,
+      professionalJudgmentNote,
+      reasoningTrace,
       modelVersion: 'qwen-v1',
       promptVersion: IRAC_PROMPT_VERSION,
     }).catch((err) => {
@@ -206,6 +308,11 @@ export class IracReasonerService {
       );
       return undefined;
     });
+
+    // v3.0：异步记录专业知识使用情况
+    if (reasoningChainId && expertiseApplied.length > 0) {
+      this.recordExpertiseUsageAsync(expertiseApplied, reasoningChainId);
+    }
 
     const degraded: IracReasonResult['degraded'] = applicationSkipped
       ? 'application_skipped'
@@ -223,19 +330,148 @@ export class IracReasonerService {
       promptVersion: IRAC_PROMPT_VERSION,
       tokensIn,
       tokensOut,
+      // v3.0 新增返回字段
+      expertiseApplied: expertiseApplied.length > 0 ? expertiseApplied : undefined,
+      professionalJudgmentNote:
+        expertiseApplied.length > 0 ? professionalJudgmentNote : undefined,
     };
+  }
+
+  // ===== v3.0 新增：律师专业知识融合辅助方法 =====
+
+  /** 为指定 IRAC 步骤构建律师专业知识注入上下文 */
+  private async buildExpertiseContextForStep(
+    iracStep: 'issue' | 'rule' | 'application' | 'conclusion',
+    issueType?: string,
+    caseDescription?: string,
+    lawIds?: string[],
+  ) {
+    if (!this.lawyerExpertiseService) {
+      return undefined;
+    }
+
+    try {
+      return await this.lawyerExpertiseService.buildInjectionContext(iracStep, {
+        issueType,
+        caseDescription,
+        lawIds,
+      });
+    } catch (err) {
+      this.logger?.warn('构建律师专业知识注入上下文失败', {
+        iracStep,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return undefined;
+    }
+  }
+
+  /** 记录应用的律师专业知识 */
+  private recordExpertiseApplication(
+    expertiseList: Array<{
+      expertiseId: string;
+      title: string;
+      expertiseType: string;
+    }>,
+    iracStep: 'issue' | 'rule' | 'application' | 'conclusion',
+    expertiseApplied: ExpertiseAppliedItem[],
+    reasoningTrace: ReasoningTraceNode[],
+    order: number,
+    applicationNote: string,
+  ): void {
+    for (const exp of expertiseList) {
+      expertiseApplied.push({
+        expertiseId: exp.expertiseId,
+        expertiseTitle: exp.title,
+        expertiseType: exp.expertiseType,
+        iracStep,
+        applicationNote,
+        influenceScore: 0.7, // 默认影响分
+        source: 'auto_matched',
+      });
+
+      reasoningTrace.push({
+        nodeId: `trace_${order}_${exp.expertiseId.slice(-6)}`,
+        nodeType: 'expertise_injected',
+        title: `律师经验注入：${exp.title}`,
+        content: applicationNote,
+        expertiseIds: [exp.expertiseId],
+        order,
+      });
+    }
+  }
+
+  /** 构建专业判断应用说明 */
+  private buildProfessionalJudgmentNote(
+    expertiseApplied: ExpertiseAppliedItem[],
+    _reasoningTrace: ReasoningTraceNode[],
+  ): {
+    summary: string;
+    stepDetails: Array<{
+      step: string;
+      expertiseIds: string[];
+      influenceDescription: string;
+    }>;
+    significantlyInfluenced: boolean;
+  } {
+    const stepMap = new Map<string, { ids: string[]; descriptions: string[] }>();
+
+    for (const item of expertiseApplied) {
+      const existing = stepMap.get(item.iracStep) ?? { ids: [], descriptions: [] };
+      existing.ids.push(item.expertiseId);
+      existing.descriptions.push(item.applicationNote);
+      stepMap.set(item.iracStep, existing);
+    }
+
+    const stepDetails = Array.from(stepMap.entries()).map(([step, data]) => ({
+      step,
+      expertiseIds: data.ids,
+      influenceDescription: data.descriptions.join('；'),
+    }));
+
+    // _reasoningTrace 可用于后续扩展：追踪节点与专业知识的关联
+    const traceInsights = _reasoningTrace.length;
+
+    return {
+      summary: `本次推理融合了 ${expertiseApplied.length} 条律师专业知识，覆盖 ${stepDetails.length} 个推理步骤，产生 ${traceInsights} 个推理追踪节点。`,
+      stepDetails,
+      significantlyInfluenced: expertiseApplied.some((e) => e.influenceScore >= 0.7),
+    };
+  }
+
+  /** 异步记录专业知识使用情况（不阻塞主流程） */
+  private recordExpertiseUsageAsync(
+    expertiseApplied: ExpertiseAppliedItem[],
+    reasoningChainId: string,
+  ): void {
+    if (!this.lawyerExpertiseService) return;
+
+    for (const item of expertiseApplied) {
+      this.lawyerExpertiseService
+        .recordUsage(item.expertiseId, reasoningChainId, item.iracStep)
+        .catch(() => {
+          // 静默失败，不阻塞主流程
+        });
+    }
   }
 
   // ===== 步骤 1：Issue 争议点识别（16 §2.1）=====
 
-  /** LLM 识别争议点 */
+  /** LLM 识别争议点（v3.0 增强，支持律师专业知识注入） */
   private async identifyIssues(
     caseDescription: string,
     question: string | undefined,
     entities: Entity[],
+    expertiseInjectionPrompt?: string,
   ): Promise<{ issues: Issue[]; tokensIn: number; tokensOut: number; warnings: string[] }> {
     const warnings: string[] = [];
     const entityText = entities.map((e) => `${e.type}=${e.value}`).join('；');
+
+    // v3.0：注入律师专业知识到 system prompt
+    let systemPrompt = ISSUE_SYSTEM_PROMPT;
+    if (expertiseInjectionPrompt) {
+      systemPrompt += '\n\n【律师专业经验参考】\n' + expertiseInjectionPrompt;
+    }
+
     const userPrompt = [
       `用户问题：${question ?? caseDescription}`,
       `案情描述：${caseDescription}`,
@@ -246,7 +482,7 @@ export class IracReasonerService {
       .join('\n');
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: ISSUE_SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ];
 
@@ -355,11 +591,12 @@ export class IracReasonerService {
 
   // ===== 步骤 2：Rule 法条规则抽取（16 §2.2）=====
 
-  /** 抽取法条规则（含召回 + 扩展 + 时效校验 + parseArticle） */
+  /** 抽取法条规则（v3.0 增强，支持律师专业知识注入） */
   private async extractRules(
     issues: Issue[],
     retrievedContext: string | undefined,
     warnings: string[],
+    expertiseInjectionPrompt?: string,
   ): Promise<Rule[]> {
     const rules: Rule[] = [];
     const seenArticleIds = new Set<string>();
@@ -382,8 +619,11 @@ export class IracReasonerService {
       }> = [];
       if (this.rag) {
         try {
+          const enrichedQuery = expertiseInjectionPrompt
+            ? `${recallKey} ${expertiseInjectionPrompt.slice(0, 100)}`
+            : recallKey;
           const results = await this.rag.retrieve({
-            text: recallKey,
+            text: enrichedQuery,
             collections: ['law_article'],
             finalTopK: 5,
           });
@@ -445,11 +685,12 @@ export class IracReasonerService {
 
   // ===== 步骤 3：Application 事实映射（16 §2.3 + §4）=====
 
-  /** 事实映射：对每条 rule 调 LawApplicationDeterminer.determine */
+  /** 事实映射（v3.0 增强，支持律师专业知识注入） */
   private async mapApplications(
     rules: Rule[],
     entities: Entity[],
     caseDescription: string | undefined,
+    expertiseInjectionPrompt?: string,
   ): Promise<{ applications: Application[]; warnings: string[] }> {
     const applications: Application[] = [];
     const warnings: string[] = [];
@@ -460,6 +701,7 @@ export class IracReasonerService {
           rule,
           factEntities: entities,
           caseDescription,
+          expertiseContext: expertiseInjectionPrompt,
         });
         applications.push({
           ruleId: rule.articleId,
@@ -486,7 +728,7 @@ export class IracReasonerService {
 
   // ===== 步骤 4：Conclusion 综合结论（16 §2.4）=====
 
-  /** LLM 生成综合结论 */
+  /** LLM 生成综合结论（v3.0 增强，支持律师专业知识注入） */
   private async generateConclusion(
     issues: Issue[],
     rules: Rule[],
@@ -494,6 +736,7 @@ export class IracReasonerService {
     applicationSkipped: boolean,
     caseDescription: string,
     question: string | undefined,
+    expertiseInjectionPrompt?: string,
   ): Promise<{ conclusion: Conclusion; tokensIn: number; tokensOut: number; warnings: string[] }> {
     const warnings: string[] = [];
 
@@ -505,6 +748,12 @@ export class IracReasonerService {
         tokensOut: 0,
         warnings: [...warnings, 'LlmService 不可用，使用兜底结论'],
       };
+    }
+
+    // v3.0：注入律师专业知识到 system prompt
+    let systemPrompt = CONCLUSION_SYSTEM_PROMPT;
+    if (expertiseInjectionPrompt) {
+      systemPrompt += '\n\n【律师专业经验参考】\n' + expertiseInjectionPrompt;
     }
 
     const userPrompt = [
@@ -519,7 +768,7 @@ export class IracReasonerService {
       .join('\n');
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: CONCLUSION_SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ];
 
@@ -695,7 +944,7 @@ export class IracReasonerService {
 
   // ===== 持久化 reasoning_chain（16 §6）=====
 
-  /** 写入 reasoning_chain 集合 */
+  /** 写入 reasoning_chain 集合（v3.0 增强，含律师专业判断记录） */
   private async persistChain(record: {
     chainId: string;
     msgId: string;
@@ -704,6 +953,13 @@ export class IracReasonerService {
     rules: Rule[];
     applications: Application[];
     conclusion: Conclusion;
+    expertiseApplied?: ExpertiseAppliedItem[];
+    professionalJudgmentNote?: {
+      summary: string;
+      stepDetails: Array<{ step: string; expertiseIds: string[]; influenceDescription: string }>;
+      significantlyInfluenced: boolean;
+    };
+    reasoningTrace?: ReasoningTraceNode[];
     modelVersion?: string;
     promptVersion: string;
   }): Promise<string | undefined> {
@@ -720,6 +976,10 @@ export class IracReasonerService {
       rules: record.rules.map((r) => this.toSchemaRule(r)),
       applications: record.applications.map((a) => this.toSchemaApplication(a)),
       conclusion: this.toSchemaConclusion(record.conclusion),
+      // v3.0 新增：律师专业判断相关字段
+      lawyerExpertiseApplied: record.expertiseApplied ?? [],
+      professionalJudgmentNote: record.professionalJudgmentNote,
+      reasoningTrace: record.reasoningTrace ?? [],
       modelVersion: record.modelVersion,
       promptVersion: record.promptVersion,
       expireAt: new Date(Date.now() + 180 * 24 * 3600 * 1000),
@@ -732,6 +992,7 @@ export class IracReasonerService {
         msgId: record.msgId,
         issueCount: record.issues.length,
         ruleCount: record.rules.length,
+        expertiseAppliedCount: record.expertiseApplied?.length ?? 0,
       });
       return record.chainId;
     } catch (err) {

@@ -7,13 +7,14 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { LoggerModule } from '../../modules/platform/logger/logger.module';
 import { AppLoggerService } from '../../modules/platform/logger/logger.service';
 
 export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
 
 @Global()
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, LoggerModule],
   providers: [
     {
       provide: REDIS_CLIENT,

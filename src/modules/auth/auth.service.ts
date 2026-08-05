@@ -143,7 +143,7 @@ export class AuthService {
    */
   async requireRole(caller: JwtPayload, required: UserRole): Promise<void> {
     const callerRole = (caller.role ?? 'user') as UserRole;
-    const rank: Record<UserRole, number> = { user: 0, ops: 1, audit: 1, admin: 2 };
+    const rank: Record<UserRole, number> = { user: 0, lawyer: 1, ops: 2, audit: 2, admin: 3 };
     if (rank[callerRole] < rank[required]) {
       throw new ForbiddenException({ code: 4032, message: '无操作权限' });
     }

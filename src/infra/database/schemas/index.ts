@@ -145,3 +145,35 @@ export {
   type ComplianceRiskLevel,
   type ComplianceTrigger,
 } from './compliance-alert.schema';
+
+// v3.0 新增：律师专业知识库（lawyer_expertise）
+export {
+  LawyerExpertise,
+  LawyerExpertiseSchema,
+  type LawyerExpertiseDocument,
+  type ExpertiseType,
+  type ExpertiseScenario,
+  type ExpertiseSource,
+  type ExpertiseCondition,
+  type ExpertiseArgument,
+  type ExpertiseExample,
+  type ExpertiseUsageRecord,
+} from './lawyer-expertise.schema';
+
+// v3.0 新增：预发布审核（pre_publish_review）
+export {
+  PrePublishReview,
+  PrePublishReviewSchema,
+  type PrePublishReviewDocument,
+  type PrePublishReviewState,
+  type AiGeneratedOpinion,
+  type LawyerModification,
+  type LawyerSupplement,
+  type FinalOpinion,
+} from './pre-publish-review.schema';
+
+// v3.0 新增：推理链扩展类型
+export {
+  type ExpertiseAppliedItem,
+  type ReasoningTraceNode,
+} from './reasoning-chain.schema';

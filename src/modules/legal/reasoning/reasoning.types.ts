@@ -133,6 +133,26 @@ export interface IracReasonResult {
   promptVersion: string;
   tokensIn: number;
   tokensOut: number;
+  /** v3.0 新增：应用的律师专业知识 */
+  expertiseApplied?: Array<{
+    expertiseId: string;
+    expertiseTitle: string;
+    expertiseType: string;
+    iracStep: string;
+    applicationNote: string;
+    influenceScore: number;
+    source: string;
+  }>;
+  /** v3.0 新增：专业判断应用说明 */
+  professionalJudgmentNote?: {
+    summary: string;
+    stepDetails: Array<{
+      step: string;
+      expertiseIds: string[];
+      influenceDescription: string;
+    }>;
+    significantlyInfluenced: boolean;
+  };
 }
 
 // ===== 法条适用判定（16 §4）=====
@@ -160,6 +180,8 @@ export interface LawApplicationInput {
   rule: Rule | ParsedArticle;
   factEntities: Entity[];
   caseDescription?: string;
+  /** v3.0 新增：律师专业知识注入提示 */
+  expertiseContext?: string;
 }
 
 /** 法条适用判定结果 */

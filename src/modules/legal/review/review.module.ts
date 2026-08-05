@@ -1,23 +1,20 @@
 /**
- * ReviewModule —— 律师审核评估闭环模块（v2.3 阶段十，17 §2-§6）。
+ * ReviewModule —— 律师审核评估闭环模块（v3.0 增强版）。
  *
- * 装配五个核心服务：
+ * v3.0 新增：
+ *   - PrePublishReviewService：实时人机协同预发布审核
+ *   - ExpertiseQualityScorer：律师专业判断质量评估
+ *
+ * 核心服务：
  *   1. LawyerReviewService：审核工作流状态机 + 三档抽样策略
  *   2. AnswerTracer：AI 回答溯源元数据记录
  *   3. AnswerQualityScorer：双轨评分（自动实时 + 律师异步）
  *   4. ComplianceMonitor：合规风险三路评分闭环
- *   5. LawyerAnnotationService：律师标注回流（4 目标）
+ *   5. LawyerAnnotationService：律师标注回流
+ *   6. PrePublishReviewService：实时人机协同（v3.0 新增）
+ *   7. ExpertiseQualityScorer：专业判断质量评估（v3.0 新增）
  *
- * 依赖：
- *   - MongooseModule：lawyer_review / answer_traceability / compliance_alert /
- *                     intent_eval_set / reasoning_chain / law_article / feedback
- *   - LoggerModule：AppLoggerService（可选）
- *   - AuditModule：AuditLogService（可选，审计事件）
- *   - ContentSafetyModule：ContentSafetyService（可选，合规扫描路径 1）
- *
- * 模块化动机：v2.3 阶段十 LawyerReviewAgent 需注入五服务，独立模块便于 AgentsModule 导入。
- *
- * 设计依据：17 §2-§6；05 3.32/3.33/3.34 集合。
+ * 设计依据：17 §2-§6；v3.0 律师专业判断深度整合需求。
  */
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -44,15 +41,22 @@ import {
   ReasoningChainSchema,
 } from '../../../infra/database/schemas/reasoning-chain.schema';
 import { Feedback, FeedbackSchema } from '../../../infra/database/schemas/user.schema';
+import {
+  PrePublishReview,
+  PrePublishReviewSchema,
+} from '../../../infra/database/schemas/pre-publish-review.schema';
 import { LoggerModule } from '../../platform/logger/logger.module';
 import { AuditModule } from '../../platform/audit/audit.module';
 import { ContentSafetyModule } from '../../platform/content-safety/content-safety.module';
 import { AuthModule } from '../../auth/auth.module';
+import { KnowledgeBaseModule } from '../knowledge/knowledge-base.module';
 import { LawyerReviewService } from './lawyer-review.service';
 import { AnswerTracer } from './answer-tracer.service';
 import { AnswerQualityScorer } from './answer-quality-scorer.service';
 import { ComplianceMonitor } from './compliance-monitor.service';
 import { LawyerAnnotationService } from './lawyer-annotation.service';
+import { PrePublishReviewService } from './pre-publish-review.service';
+import { ExpertiseQualityScorer } from './expertise-quality-scorer.service';
 import { LawyerReviewController } from './lawyer-review.controller';
 
 @Module({
@@ -65,11 +69,13 @@ import { LawyerReviewController } from './lawyer-review.controller';
       { name: ReasoningChain.name, schema: ReasoningChainSchema },
       { name: LawArticle.name, schema: LawArticleSchema },
       { name: Feedback.name, schema: FeedbackSchema },
+      { name: PrePublishReview.name, schema: PrePublishReviewSchema }, // v3.0 新增
     ]),
     LoggerModule,
     AuditModule,
     ContentSafetyModule,
-    AuthModule, // 暴露 AuthService/RolesGuard，供 LawyerReviewController 的 @Roles 注入
+    AuthModule,
+    KnowledgeBaseModule, // v3.0 新增：律师专业知识库
   ],
   controllers: [LawyerReviewController],
   providers: [
@@ -78,6 +84,8 @@ import { LawyerReviewController } from './lawyer-review.controller';
     AnswerQualityScorer,
     ComplianceMonitor,
     LawyerAnnotationService,
+    PrePublishReviewService, // v3.0 新增
+    ExpertiseQualityScorer, // v3.0 新增
   ],
   exports: [
     LawyerReviewService,
@@ -85,6 +93,8 @@ import { LawyerReviewController } from './lawyer-review.controller';
     AnswerQualityScorer,
     ComplianceMonitor,
     LawyerAnnotationService,
+    PrePublishReviewService, // v3.0 新增
+    ExpertiseQualityScorer, // v3.0 新增
   ],
 })
 export class ReviewModule {}
