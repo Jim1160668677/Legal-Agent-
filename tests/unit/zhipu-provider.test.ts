@@ -70,20 +70,33 @@ describe('ZhipuProvider', () => {
     vi.mocked(withRetry).mockClear();
   });
 
-  it('name/defaultModel 暴露；默认关闭 thinking', async () => {
+  it('name/defaultModel 暴露；默认显式关闭思考模式', async () => {
     expect(provider.name).toBe('zhipu');
     expect(provider.defaultModel).toBe('glm-4.7-flash');
     await provider.generate([{ role: 'user', content: 'q' }]);
     const body = vi.mocked(httpJson).mock.calls[0][0].body as Record<string, unknown>;
-    expect(body.thinking).toBeUndefined();
+    expect(body.thinking).toEqual({ type: 'disabled' });
   });
 
-  it('ZHIPU_THINKING=enabled → 请求体含 thinking.type', async () => {
+  it('ZHIPU_THINKING=enabled → 请求体 thinking.type=enabled', async () => {
     process.env.ZHIPU_THINKING = 'enabled';
     const p = new ZhipuProvider(cfg, runtime);
     await p.generate([{ role: 'user', content: 'q' }]);
     const body = vi.mocked(httpJson).mock.calls[0][0].body as Record<string, unknown>;
     expect(body.thinking).toEqual({ type: 'enabled' });
+  });
+
+  it('stream 也显式传递思考模式（disabled）', async () => {
+    vi.mocked(httpStream).mockResolvedValue({ body: {} } as never);
+    vi.mocked(parseSse).mockImplementation(async function* () {
+      yield { data: '{"choices":[{"delta":{"content":"甲"},"finish_reason":null}]}' };
+      yield { data: '[DONE]' };
+    });
+    const chunks: unknown[] = [];
+    for await (const c of provider.stream([{ role: 'user', content: 'q' }])) chunks.push(c);
+    expect(chunks.length).toBe(2);
+    const [httpArg] = vi.mocked(httpStream).mock.calls[0];
+    expect((httpArg.body as { thinking: { type: string } }).thinking).toEqual({ type: 'disabled' });
   });
 
   it('generate 成功 → 解析 content/finishReason/usage + 请求体组装', async () => {

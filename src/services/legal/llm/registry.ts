@@ -10,6 +10,7 @@
 import type { LlmProvider } from './provider';
 import { AgnesProvider } from './agnesProvider';
 import { QwenProvider } from './qwenProvider';
+import { ZhipuProvider } from './zhipuProvider';
 import type { AppConfig } from '../../../config/types';
 
 export class ProviderRegistry {
@@ -74,12 +75,13 @@ export class ProviderRegistry {
 }
 
 /**
- * 创建默认 registry：注册 agnes + qwen，按 cfg.llm.provider 设 active。
+ * 创建默认 registry：注册 agnes + qwen + zhipu，按 cfg.llm.provider 设 active。
  */
 export function createDefaultRegistry(cfg: AppConfig): ProviderRegistry {
   const reg = new ProviderRegistry();
   reg.register(new AgnesProvider(cfg.agnes, cfg.llm));
   reg.register(new QwenProvider(cfg.qwen, cfg.llm));
+  reg.register(new ZhipuProvider(cfg.zhipu, cfg.llm));
   reg.setActive(cfg.llm.provider);
   return reg;
 }

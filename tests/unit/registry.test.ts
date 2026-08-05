@@ -3,6 +3,7 @@ import { ProviderRegistry, createDefaultRegistry } from '../../src/services/lega
 import type { LlmProvider } from '../../src/services/legal/llm/provider';
 import { NotImplementedError } from '../../src/services/legal/llm/provider';
 import type { QwenProvider } from '../../src/services/legal/llm/qwenProvider';
+import type { ZhipuProvider } from '../../src/services/legal/llm/zhipuProvider';
 import type { AppConfig } from '../../src/config/types';
 
 /** 构造 mock provider */
@@ -25,8 +26,8 @@ function mockProvider(name: string, model = `model-${name}`): LlmProvider {
   };
 }
 
-/** 构造测试用 AppConfig（agnes + qwen 均有占位 key） */
-function makeCfg(provider: 'agnes' | 'qwen' = 'agnes'): AppConfig {
+/** 构造测试用 AppConfig（agnes + qwen + zhipu 均有占位 key） */
+function makeCfg(provider: 'agnes' | 'qwen' | 'zhipu' = 'agnes'): AppConfig {
   return {
     llm: {
       provider,
@@ -44,6 +45,11 @@ function makeCfg(provider: 'agnes' | 'qwen' = 'agnes'): AppConfig {
       apiKey: 'sk-test',
       baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
       defaultModel: 'qwen-max',
+    },
+    zhipu: {
+      apiKey: 'sk-test',
+      baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+      defaultModel: 'glm-4.7-flash',
     },
   };
 }
@@ -126,12 +132,13 @@ describe('ProviderRegistry', () => {
 });
 
 describe('createDefaultRegistry', () => {
-  it('默认注册 agnes + qwen，active 为 cfg.llm.provider', () => {
+  it('默认注册 agnes + qwen + zhipu，active 为 cfg.llm.provider', () => {
     const reg = createDefaultRegistry(makeCfg('agnes'));
     expect(reg.has('agnes')).toBe(true);
     expect(reg.has('qwen')).toBe(true);
+    expect(reg.has('zhipu')).toBe(true);
     expect(reg.activeName).toBe('agnes');
-    expect(reg.list()).toHaveLength(2);
+    expect(reg.list()).toHaveLength(3);
   });
 
   it('provider=qwen 时 active 为 qwen', () => {
@@ -140,10 +147,17 @@ describe('createDefaultRegistry', () => {
     expect(reg.active.name).toBe('qwen');
   });
 
-  it('agnes provider 默认模型正确', () => {
+  it('provider=zhipu 时 active 为 zhipu（LLM_PROVIDER=zhipu 场景）', () => {
+    const reg = createDefaultRegistry(makeCfg('zhipu'));
+    expect(reg.activeName).toBe('zhipu');
+    expect(reg.active.name).toBe('zhipu');
+  });
+
+  it('agnse/qwen/zhipu provider 默认模型正确', () => {
     const reg = createDefaultRegistry(makeCfg('agnes'));
     expect(reg.get('agnes')?.defaultModel).toBe('agnes-2.0-flash');
     expect(reg.get('qwen')?.defaultModel).toBe('qwen-max');
+    expect(reg.get('zhipu')?.defaultModel).toBe('glm-4.7-flash');
   });
 
   it('QwenProvider 调用 generate 抛 NotImplementedError', async () => {
@@ -162,5 +176,14 @@ describe('createDefaultRegistry', () => {
         // 迭代即抛
       }
     }).rejects.toBeInstanceOf(NotImplementedError);
+  });
+
+  it('provider=zhipu 时 active 为真实 ZhipuProvider 实例', async () => {
+    const reg = createDefaultRegistry(makeCfg('zhipu'));
+    const zp = reg.get('zhipu') as ZhipuProvider;
+    expect(zp.name).toBe('zhipu');
+    expect(zp.defaultModel).toBe('glm-4.7-flash');
+    expect(reg.active.name).toBe('zhipu');
+    expect(() => reg.setActive('zhipu')).not.toThrow();
   });
 });

@@ -91,10 +91,10 @@ export class ZhipuProvider implements LlmProvider {
     if (opts?.topP !== undefined) body.top_p = opts.topP;
     if (opts?.stop !== undefined) body.stop = opts.stop;
     if (stream) body.stream = true;
-    // 智谱思考模式：thinking: { type: 'enabled' }
-    if (this.thinkingEnabled) {
-      body.thinking = { type: 'enabled' };
-    }
+    // 智谱思考模式：显式声明（默认 disabled）。
+    // glm-4.7-flash 等模型思考模式默认开启，会占用全部 token 预算于
+    // reasoning_content，导致 content 为空（静默失败）；ZHIPU_THINKING=enabled 时开启。
+    body.thinking = { type: this.thinkingEnabled ? 'enabled' : 'disabled' };
     return body;
   }
 
