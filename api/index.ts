@@ -29,7 +29,7 @@ async function initApp() {
     return { app: cachedApp, server: cachedServer };
   }
 
-  const app = await NestFactory.create(AppModule, { 
+  const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
 
@@ -55,6 +55,9 @@ async function initApp() {
 
   // 全局响应拦截器
   app.useGlobalInterceptors(new ResponseInterceptor());
+
+  // 初始化应用（注册路由、控制器等）—— 必须调用才能处理请求
+  await app.init();
 
   // 获取底层 HTTP Server
   const server = app.getHttpServer();
