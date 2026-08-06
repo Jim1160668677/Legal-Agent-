@@ -2,29 +2,13 @@
   "name": "@legal-agent/sdk",
   "version": "1.0.0",
   "description": "法律智能体统一SDK - 支持多平台客户端",
-  "main": "dist/index.js",
+  "main": "dist/cjs/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js",
       "types": "./dist/index.d.ts"
-    },
-    "./wechat": {
-      "import": "./dist/wechat/index.js",
-      "types": "./dist/wechat/index.d.ts"
-    },
-    "./android": {
-      "import": "./dist/android/index.js",
-      "types": "./dist/android/index.d.ts"
-    },
-    "./ios": {
-      "import": "./dist/ios/index.js",
-      "types": "./dist/ios/index.d.ts"
-    },
-    "./harmony": {
-      "import": "./dist/harmony/index.js",
-      "types": "./dist/harmony/index.d.ts"
     }
   },
   "scripts": {

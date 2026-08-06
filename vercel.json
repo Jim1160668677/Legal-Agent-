@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd 各版本/common/sdk && npm run build && cd ../web && npm run build",
+  "buildCommand": "cd 各版本/common/sdk && npm run build && cd ../../web && npm run build",
   "outputDirectory": "各版本/web/dist",
   "framework": "vite",
   "installCommand": "cd 各版本/common/sdk && npm install && cd ../../web && npm install && cd ../..",

@@ -14,7 +14,6 @@
  */
 
 import type {
-  ApiResponse,
   ApiErrorResponse,
   AuthResult,
   ChatDto,
@@ -24,15 +23,13 @@ import type {
   DocumentRecord,
   DocumentTemplate,
   ExternalProvider,
-  IntentResult,
   JobStatusResult,
   KnowledgeListResult,
-  KnowledgeResult,
   LegalAgentConfig,
   ProviderStatus,
   VisionRecognizeDto,
   VisionRecognizeResult,
-} from './types';
+} from './types.js';
 
 /** 统一HTTP请求结果 */
 type RequestResult<T> =
@@ -416,13 +413,10 @@ export class LegalAgentClient {
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
 
-        let currentEvent = 'data';
         let currentData = '';
 
         for (const line of lines) {
-          if (line.startsWith('event:')) {
-            currentEvent = line.slice(6).trim();
-          } else if (line.startsWith('data:')) {
+          if (line.startsWith('data:')) {
             currentData = line.slice(5).trim();
           } else if (line === '' && currentData) {
             // 完整帧

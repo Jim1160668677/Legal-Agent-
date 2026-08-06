@@ -4,10 +4,10 @@
  */
 
 // 核心类型
-export * from './types';
+export * from './types.js';
 
 // 核心客户端
-export { LegalAgentClient, ApiError } from './client';
+export { LegalAgentClient, ApiError } from './client.js';
 
 // 默认导出
-export { default } from './client';
+export { default } from './client.js';

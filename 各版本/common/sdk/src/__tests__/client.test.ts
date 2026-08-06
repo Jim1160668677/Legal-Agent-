@@ -1,370 +1,245 @@
 /**
- * 法律智能体 SDK 单元测试
+ * 法律智能体 SDK 单元测试（对齐当前 LegalAgentClient 实现）
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { LegalAgentClient, ApiErrorClass, WebSocketClient, type ApiConfig } from '../index'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import LegalAgentClient, { ApiError } from '../index'
+import type { ChatFrame } from '../types'
 
-// Mock axios
-const mockAxios = {
-  interceptors: {
-    request: { use: vi.fn() },
-    response: { use: vi.fn() },
-  },
-  get: vi.fn(),
-  post: vi.fn(),
-  delete: vi.fn(),
-  defaults: { headers: { common: {} } },
+// ==================== 测试工具 ====================
+
+/** 构造 SSE 响应体流 */
+function sseStream(chunks: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder()
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk))
+      }
+      controller.close()
+    },
+  })
 }
 
-vi.mock('axios', () => ({
-  default: {
-    create: vi.fn(() => mockAxios),
-  },
-}))
+function jsonResponse(body: unknown, init: Partial<Response> = {}) {
+  return {
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve(body),
+    text: () => Promise.resolve(''),
+    body: null,
+    ...init,
+  } as unknown as Response
+}
+
+/** 以数组形式消费 chat 异步生成器 */
+async function collectFrames(generator: AsyncGenerator<ChatFrame>): Promise<ChatFrame[]> {
+  const frames: ChatFrame[] = []
+  for await (const frame of generator) {
+    frames.push(frame)
+  }
+  return frames
+}
+
+const CHAT_SSE = [
+  'event: chunk\ndata: {"type":"chunk","delta":"你好"}\n\n',
+  'event: meta\ndata: {"type":"meta","sessionId":"s1"}\n\n',
+  'event: done\ndata: {"type":"done","messageId":"m1"}\n\n',
+]
 
 describe('LegalAgentClient', () => {
   let client: LegalAgentClient
+  let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    client = new LegalAgentClient({
-      baseUrl: 'http://test-api.com',
-    })
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    client = new LegalAgentClient({ baseUrl: 'https://api.test.com/' })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   describe('构造函数', () => {
-    it('应该创建客户端实例', () => {
+    it('应创建客户端实例（baseUrl 尾部斜杠被去除）', () => {
       expect(client).toBeInstanceOf(LegalAgentClient)
     })
 
-    it('应该接受自定义配置', () => {
-      const customClient = new LegalAgentClient({
-        baseUrl: 'http://custom.com',
-        timeout: 60000,
-        apiKey: 'test-key',
+    it('应接受自定义配置', () => {
+      const c = new LegalAgentClient({
+        baseUrl: 'https://custom.com',
+        timeout: 5000,
+        appVersion: '2.0.0',
+        clientType: 'mini',
       })
-      expect(customClient).toBeInstanceOf(LegalAgentClient)
+      expect(c).toBeInstanceOf(LegalAgentClient)
     })
   })
 
-  describe('认证方法', () => {
-    it('isAuthenticated 初始应该返回 false', () => {
-      expect(client.isAuthenticated()).toBe(false)
+  describe('认证状态', () => {
+    it('isLoggedIn 初始应返回 false', () => {
+      expect(client.isLoggedIn()).toBe(false)
     })
 
-    it('setToken 应该设置 token 并更新 headers', () => {
-      client.setToken('test-jwt-token')
-      expect(mockAxios.defaults.headers.common['Authorization']).toBe('Bearer test-jwt-token')
+    it('setTokens 后 isLoggedIn 返回 true', () => {
+      client.setTokens('access-token', 'refresh-token')
+      expect(client.isLoggedIn()).toBe(true)
+      expect(client.getToken()).toBe('access-token')
     })
 
-    it('setToken 应该同时设置 refreshToken', () => {
-      client.setToken('access-token', 'refresh-token')
-      expect(client.isAuthenticated()).toBe(true)
-    })
-
-    it('clearToken 应该清除所有认证信息', () => {
-      client.setToken('test-token')
-      client.clearToken()
-      expect(client.isAuthenticated()).toBe(false)
-      expect(mockAxios.defaults.headers.common['Authorization']).toBeUndefined()
-    })
-
-    it('getUser 在未登录时应该返回 null', () => {
-      expect(client.getUser()).toBeNull()
+    it('clearTokens 应清除认证信息', () => {
+      client.setTokens('a', 'r')
+      client.clearTokens()
+      expect(client.isLoggedIn()).toBe(false)
+      expect(client.getToken()).toBeNull()
     })
   })
 
-  describe('API方法存在性', () => {
-    it('应该有 login 方法', () => {
-      expect(typeof client.login).toBe('function')
-    })
-
-    it('应该有 logout 方法', () => {
-      expect(typeof client.logout).toBe('function')
-    })
-
-    it('应该有 refreshAuthToken 方法', () => {
-      expect(typeof client.refreshAuthToken).toBe('function')
-    })
-
-    it('应该有 createSession 方法', () => {
-      expect(typeof client.createSession).toBe('function')
-    })
-
-    it('应该有 sendMessage 方法', () => {
-      expect(typeof client.sendMessage).toBe('function')
-    })
-
-    it('应该有 getMessages 方法', () => {
-      expect(typeof client.getMessages).toBe('function')
-    })
-
-    it('应该有 listSessions 方法', () => {
-      expect(typeof client.listSessions).toBe('function')
-    })
-
-    it('应该有 deleteSession 方法', () => {
-      expect(typeof client.deleteSession).toBe('function')
-    })
-
-    it('应该有 retrieveKnowledge 方法', () => {
-      expect(typeof client.retrieveKnowledge).toBe('function')
-    })
-
-    it('应该有 analyzeCase 方法', () => {
-      expect(typeof client.analyzeCase).toBe('function')
-    })
-
-    it('应该有 getAnalysis 方法', () => {
-      expect(typeof client.getAnalysis).toBe('function')
-    })
-
-    it('应该有 createDocumentTask 方法', () => {
-      expect(typeof client.createDocumentTask).toBe('function')
-    })
-
-    it('应该有 recognizeIntent 方法', () => {
-      expect(typeof client.recognizeIntent).toBe('function')
-    })
-
-    it('应该有 createWebSocket 方法', () => {
-      expect(typeof client.createWebSocket).toBe('function')
+  describe('login', () => {
+    it('应调用 POST /v1/auth/login 并解析统一响应', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          code: 0,
+          data: { accessToken: 'at', refreshToken: 'rt', userId: 'u1', isNewUser: false },
+          traceId: 't1',
+        }),
+      )
+      const result = await client.login('phone', '13800138000')
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.data.userId).toBe('u1')
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toBe('https://api.test.com/v1/auth/login')
+      expect(init.method).toBe('POST')
+      expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+        provider: 'phone',
+        externalId: '13800138000',
+      })
     })
   })
 
-  describe('事件发射', () => {
-    it('应该在登录时发射 auth:login 事件', async () => {
-      const mockLoginResponse = {
-        data: {
-          data: {
-            accessToken: 'test-token',
-            refreshToken: 'refresh-token',
-            user: { id: '1', username: 'test', role: 'user' as const },
-          },
-        },
-      }
-      mockAxios.post.mockResolvedValue(mockLoginResponse)
-
-      const authHandler = vi.fn()
-      client.on('auth:login', authHandler)
-
-      await client.login('test', 'test123')
-      expect(authHandler).toHaveBeenCalledWith({ id: '1', username: 'test', role: 'user' })
+  describe('refreshAuthToken', () => {
+    it('无 refreshToken 时应返回 4011 错误', async () => {
+      const result = await client.refreshAuthToken()
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe(4011)
     })
+  })
 
-    it('应该在登出时发射 auth:logout 事件', async () => {
-      mockAxios.post.mockResolvedValue({ data: { success: true, data: {} } })
-
-      const logoutHandler = vi.fn()
-      client.on('auth:logout', logoutHandler)
-
-      client.clearToken()
+  describe('logout', () => {
+    it('应调用 POST /v1/auth/logout 并在 finally 清除 token', async () => {
+      client.setTokens('a', 'r')
+      fetchMock.mockResolvedValue(jsonResponse({ code: 0, data: {} }))
       await client.logout()
-      expect(logoutHandler).toHaveBeenCalled()
+      expect(fetchMock.mock.calls[0][0]).toBe('https://api.test.com/v1/auth/logout')
+      expect(client.isLoggedIn()).toBe(false)
+    })
+
+    it('即使请求失败也应清除 token', async () => {
+      client.setTokens('a', 'r')
+      fetchMock.mockRejectedValue(new Error('network'))
+      await expect(client.logout()).rejects.toThrow()
+      expect(client.isLoggedIn()).toBe(false)
     })
   })
 
-  describe('请求拦截器', () => {
-    it('应该自动添加 X-Client-Type 请求头', async () => {
-      mockAxios.post.mockResolvedValue({ data: { success: true, data: {} } })
+  describe('listAgents', () => {
+    it('应调用 GET /v1/agents 并解析结果', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          code: 0,
+          data: { agents: [{ id: '1', name: '合同审查', description: '', avatar: '', exposure: 'L-Read' }] },
+        }),
+      )
+      const result = await client.listAgents()
+      expect(result.ok).toBe(true)
+      expect(fetchMock.mock.calls[0][0]).toBe('https://api.test.com/v1/agents')
+    })
+  })
 
-      await client.login('test', 'test123')
+  describe('chatFrames（SSE）', () => {
+    it('应解析 SSE 帧为数组', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: sseStream(CHAT_SSE),
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve(''),
+      } as unknown as Response)
+      const frames = await client.chatFrames({ message: '你好' })
+      expect(frames.map((f) => f.type)).toEqual(['chunk', 'meta', 'done'])
+    })
 
-      const callArgs = mockAxios.post.mock.calls[0]
-      expect(callArgs[0]).toBe('/v1/auth/login')
+    it('SSE 请求应携带 text/event-stream Accept 头', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: sseStream(['event: done\ndata: {"type":"done","messageId":"m1"}\n\n']),
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve(''),
+      } as unknown as Response)
+      await collectFrames(client.chat({ message: 'hi' }))
+      const init = fetchMock.mock.calls[0][1] as RequestInit
+      expect((init.headers as Record<string, string>)['Accept']).toBe('text/event-stream')
+    })
+  })
+
+  describe('错误处理', () => {
+    it('fetch 网络异常时应抛出 ApiError(5001)', async () => {
+      fetchMock.mockRejectedValue(new Error('ECONNREFUSED'))
+      await expect(client.listAgents()).rejects.toMatchObject({ code: 5001, name: 'ApiError' })
+    })
+
+    it('HTTP 非 2xx 时应抛出 ApiError(status)', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve('Not Found'),
+      } as unknown as Response)
+      await expect(client.listAgents()).rejects.toMatchObject({ code: 404 })
+    })
+
+    it('401 且无 refreshToken 时应抛出 ApiError(4011)', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve('Unauthorized'),
+      } as unknown as Response)
+      await expect(client.listAgents()).rejects.toMatchObject({ code: 4011 })
+    })
+
+    it('401 时应先刷新 token 再重试原请求', async () => {
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          text: () => Promise.resolve('Unauthorized'),
+        } as unknown as Response)
+        .mockResolvedValueOnce(
+          jsonResponse({
+            code: 0,
+            data: { accessToken: 'new-at', refreshToken: 'new-rt', userId: 'u1', isNewUser: false },
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse({ code: 0, data: { agents: [] } }))
+      client.setTokens('expired-at', 'rt')
+      const result = await client.listAgents()
+      expect(result.ok).toBe(true)
+      expect(fetchMock).toHaveBeenCalledTimes(3)
     })
   })
 })
 
-describe('ApiErrorClass', () => {
-  it('应该创建正确的错误信息', () => {
-    const error = new ApiErrorClass({
-      code: 'AUTH_001',
-      message: 'Token过期',
-    })
-
-    expect(error.code).toBe('AUTH_001')
-    expect(error.message).toBe('Token过期')
+describe('ApiError', () => {
+  it('应创建正确的错误信息', () => {
+    const error = new ApiError(404, 'Not Found')
+    expect(error.code).toBe(404)
+    expect(error.message).toBe('Not Found')
     expect(error.name).toBe('ApiError')
   })
 
-  it('应该包含详细信息', () => {
-    const error = new ApiErrorClass({
-      code: 'VALID_001',
-      message: '参数校验失败',
-      details: { field: 'username' },
-    })
-
-    expect(error.details).toEqual({ field: 'username' })
-  })
-
-  it('应该有 stack 属性', () => {
-    const error = new ApiErrorClass({
-      code: 'SYS_001',
-      message: '系统错误',
-    })
-
-    expect(error.stack).toBeDefined()
-    expect(typeof error.stack).toBe('string')
-  })
-
-  it('应该继承 Error', () => {
-    const error = new ApiErrorClass({ code: 'TEST', message: 'test' })
+  it('应继承 Error 并包含 stack', () => {
+    const error = new ApiError(500, 'Server Error')
     expect(error).toBeInstanceOf(Error)
-  })
-})
-
-describe('WebSocketClient', () => {
-  let wsClient: WebSocketClient
-
-  beforeEach(() => {
-    // Mock WebSocket
-    const mockSend = vi.fn()
-    const mockClose = vi.fn()
-    global.WebSocket = vi.fn().mockImplementation(() => ({
-      onopen: null,
-      onmessage: null,
-      onerror: null,
-      onclose: null,
-      readyState: 1, // OPEN
-      send: mockSend,
-      close: mockClose,
-    }))
-    wsClient = new WebSocketClient('ws://test.com')
-  })
-
-  describe('连接管理', () => {
-    it('应该创建 WebSocket 实例', () => {
-      wsClient.connect()
-      expect(global.WebSocket).toHaveBeenCalledWith('ws://test.com')
-    })
-
-    it('应该发送消息', () => {
-      wsClient.connect()
-      wsClient.send({ type: 'test' })
-      const mockWs = (global.WebSocket as any).mock.results[0].value
-      expect(mockWs.send).toHaveBeenCalled()
-    })
-
-    it('应该处理 WebSocket 关闭', () => {
-      wsClient.connect()
-      wsClient.close()
-      const mockWs = (global.WebSocket as any).mock.results[0].value
-      expect(mockWs.close).toHaveBeenCalled()
-    })
-  })
-
-  describe('事件处理', () => {
-    it('应该触发 connected 事件', () => {
-      const handler = vi.fn()
-      wsClient.on('ws:connected', handler)
-
-      wsClient.connect()
-      const mockWs = (global.WebSocket as any).mock.results[0].value
-      mockWs.onopen?.({} as any)
-
-      expect(handler).toHaveBeenCalled()
-    })
-
-    it('应该触发 error 事件', () => {
-      const handler = vi.fn()
-      wsClient.on('ws:error', handler)
-
-      wsClient.connect()
-      const mockWs = (global.WebSocket as any).mock.results[0].value
-      mockWs.onerror?.({} as any)
-
-      expect(handler).toHaveBeenCalled()
-    })
-
-    it('应该触发 disconnected 事件', () => {
-      const handler = vi.fn()
-      wsClient.on('ws:disconnected', handler)
-
-      wsClient.connect()
-      const mockWs = (global.WebSocket as any).mock.results[0].value
-      mockWs.onclose?.({} as any)
-
-      expect(handler).toHaveBeenCalled()
-    })
-  })
-
-  describe('心跳机制', () => {
-    it('应该启动心跳定时器', () => {
-      const mockSetInterval = vi.fn()
-      global.setInterval = mockSetInterval
-
-      wsClient.connect()
-      expect(mockSetInterval).toHaveBeenCalled()
-    })
-
-    it('停止后应该清除定时器', () => {
-      const mockSetInterval = vi.fn()
-      const mockClearInterval = vi.fn()
-      global.setInterval = mockSetInterval
-      global.clearInterval = mockClearInterval
-
-      wsClient.connect()
-      wsClient.close()
-      expect(mockClearInterval).toHaveBeenCalled()
-    })
-  })
-})
-
-describe('类型定义验证', () => {
-  it('ChatMessage 类型应该包含必要字段', () => {
-    const message = {
-      id: '1',
-      sessionId: 's1',
-      role: 'user' as const,
-      content: '你好',
-      type: 'text' as const,
-      createdAt: '2024-01-01T00:00:00Z',
-    }
-    expect(message).toMatchObject({
-      id: expect.any(String),
-      sessionId: expect.any(String),
-      role: expect.any(String),
-      content: expect.any(String),
-      type: expect.any(String),
-      createdAt: expect.any(String),
-    })
-  })
-
-  it('ChatSession 类型应该包含必要字段', () => {
-    const session = {
-      id: 's1',
-      messages: [],
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-01T00:00:00Z',
-    }
-    expect(session).toMatchObject({
-      id: expect.any(String),
-      messages: expect.any(Array),
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
-    })
-  })
-
-  it('AnalysisResult 类型应该包含 IRAC 结构', () => {
-    const result = {
-      analysisId: 'a1',
-      caseType: 'contract',
-      irac: {
-        issue: ['争议焦点'],
-        rule: [{ law: '民法典', article: '第577条', content: '...' }],
-        analysis: [{ fact: '事实', rule: '规则', reasoning: '推理' }],
-        conclusion: '结论',
-      },
-      riskAssessment: {
-        level: 'medium' as const,
-        factors: [],
-        suggestions: [],
-      },
-      recommendations: [],
-    }
-    expect(result).toHaveProperty('irac')
-    expect(result.irac).toHaveProperty('conclusion')
-    expect(result).toHaveProperty('riskAssessment')
+    expect(error.stack).toBeDefined()
   })
 })
