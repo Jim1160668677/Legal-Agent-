@@ -8,6 +8,7 @@
 import { getConfig, resetConfigCache } from '../../src/config';
 import { createDefaultRegistry } from '../../src/services/legal/llm/registry';
 import { LlmServiceImpl } from '../../src/services/legal/llm';
+import { RateLimitError, TimeoutError } from '../../src/services/legal/llm/errors';
 import type { LlmServiceImpl as Service } from '../../src/services/legal/llm';
 import type { AppConfig } from '../../src/config/types';
 
@@ -79,3 +80,24 @@ export const DEFAULT_OPTS = {
   maxRetries: 2,
   timeoutMs: 30_000,
 };
+
+/**
+ * 调用 zhipu 服务，遇到速率限制(RateLimitError)或超时(TimeoutError)时跳过测试。
+ * 免费模型有配额/并发限制，限流与超时均属环境问题而非代码缺陷；
+ * 网络通畅且未过载时测试正常执行。
+ * @returns 正常返回结果；限流/超时时调用 ctx.skip() 并返回 undefined（调用方应直接 return）
+ */
+export async function callZhipu<T>(
+  ctx: { skip: () => void },
+  fn: () => Promise<T>,
+): Promise<T | undefined> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof RateLimitError || e instanceof TimeoutError) {
+      ctx.skip();
+      return undefined;
+    }
+    throw e;
+  }
+}

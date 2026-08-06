@@ -9,18 +9,13 @@ import {
 import { AuthError, TimeoutError, isLlmError } from '../../../src/services/legal/llm/errors';
 
 /**
- * 异常场景集成测试 — 真实 Agnes API。
+ * 异常场景集成测试 — 真实 Agnes API（需 key + 网络可达）。
  *
- * 覆盖 7 类错误中的可触发项：auth/timeout/invalid_request/network。
- * rate_limit 难以稳定触发，在报告中说明。
- *
- * 网络策略：
- *   - 测试 1/3 需要真实 API 可达（网络不可达时通过 ctx.skip() 跳过）
- *   - 测试 2/4/5 是本地错误场景（timeout=1ms / 错误 baseURL / abort 信号），
- *     不依赖网络可达性，始终运行
+ * 覆盖可触发的网络依赖错误：auth / invalid_request。
+ * 网络策略：key 缺失或网络不可达时跳过（本地错误场景见下方独立 describe）。
  */
 
-describe.skipIf(!hasAgnesKey())('Agnes 异常场景', () => {
+describe.skipIf(!hasAgnesKey())('Agnes 异常场景（真实 API）', () => {
   let agnesReachable = false;
 
   // 连通性预检在 beforeAll 中执行（避免 top-level await 阻塞模块加载导致 vitest worker RPC 超时）
@@ -50,24 +45,7 @@ describe.skipIf(!hasAgnesKey())('Agnes 异常场景', () => {
     expect(err.retryable).toBe(false);
   });
 
-  it('2. timeoutMs=1 → TimeoutError（kind=timeout）', async () => {
-    const service = createServiceWithConfig(cloneConfig());
-    let thrown: unknown;
-    try {
-      await service.generate('请详细介绍中国法律体系。', {
-        ...DEFAULT_OPTS,
-        maxRetries: 0,
-        timeoutMs: 1,
-      });
-    } catch (e) {
-      thrown = e;
-    }
-    expect(thrown).toBeInstanceOf(TimeoutError);
-    expect((thrown as TimeoutError).kind).toBe('timeout');
-    expect((thrown as TimeoutError).retryable).toBe(false);
-  });
-
-  it('3. 无效 model 名 → InvalidRequestError 或 ApiError', async (ctx) => {
+  it('2. 无效 model 名 → InvalidRequestError 或 ApiError', async (ctx) => {
     if (!agnesReachable) {
       ctx.skip();
       return;
@@ -89,6 +67,33 @@ describe.skipIf(!hasAgnesKey())('Agnes 异常场景', () => {
     // 无效 model 应返回 4xx；网络抖动时也可能收到 network 错误（预检通过但测试时断网）
     expect(['invalid_request', 'api', 'network']).toContain(kind);
     console.log(`[exception] invalid model → ${kind}: ${(thrown as Error).message.slice(0, 80)}`);
+  });
+});
+
+/**
+ * 异常场景 — 本地错误处理（无网络依赖，始终运行）。
+ *
+ * 覆盖：timeout / 错误 baseURL / 外部 abort 信号。
+ * 这些场景不调用真实 API（timeout=1ms 直接超时 / 无效 host DNS 失败 / 主动 abort），
+ * 无需 AGNES_API_KEY 也无须网络可达，纯验证错误分类与可重试标记。
+ */
+
+describe('Agnes 异常场景（本地，无网络）', () => {
+  it('3. timeoutMs=1 → TimeoutError（kind=timeout）', async () => {
+    const service = createServiceWithConfig(cloneConfig());
+    let thrown: unknown;
+    try {
+      await service.generate('请详细介绍中国法律体系。', {
+        ...DEFAULT_OPTS,
+        maxRetries: 0,
+        timeoutMs: 1,
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(TimeoutError);
+    expect((thrown as TimeoutError).kind).toBe('timeout');
+    expect((thrown as TimeoutError).retryable).toBe(false);
   });
 
   it('4. 错误 baseURL → NetworkError（kind=network，可重试）', async () => {
