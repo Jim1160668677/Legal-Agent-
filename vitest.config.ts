@@ -31,7 +31,7 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 30_000,
     retry: 0,
-    // 顺序执行测试文件：集成测试调用真实 Agnes API，免费用户有速率限制，
+    // 顺序执行测试文件：集成测试调用真实 Agnes API，免费用户有速率限制。
     // 并发文件执行会触发 429。单测很快，顺序执行不影响总耗时。
     fileParallelism: false,
     coverage: {

@@ -7,7 +7,7 @@
 import * as Joi from 'joi';
 
 export const validationSchema = Joi.object({
-  NODE_ENV: Joi.string().valid('dev', 'staging', 'prod').default('dev'),
+  NODE_ENV: Joi.string().valid('dev', 'staging', 'prod', 'test').default('dev'),
   PORT: Joi.number().port().default(3000),
 
   // MongoDB
