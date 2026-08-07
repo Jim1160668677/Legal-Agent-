@@ -53,6 +53,17 @@ export interface AuthResult {
 /** 用户角色 */
 export type UserRole = 'user' | 'ops' | 'audit' | 'admin';
 
+/** 用户信息 */
+export interface User {
+  id: string;
+  username: string;
+  role?: UserRole;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  createdAt?: string;
+}
+
 // ==================== 聊天相关 ====================
 
 /** SSE 帧类型（流式响应） */
@@ -310,5 +321,7 @@ export interface LegalAgentConfig {
   /** 应用版本号 */
   appVersion?: string;
   /** 客户端类型标识 */
-  clientType?: 'web' | 'wechat' | 'android' | 'ios' | 'harmonyos' | 'taro';
+  clientType?: 'web' | 'wechat' | 'android' | 'ios' | 'harmonyos' | 'taro' | 'local';
+  // 本地模式：自动检测
+  localMode?: boolean;
 }

@@ -76,7 +76,17 @@ export class LegalAgentClient {
       timeout: config.timeout ?? 30000,
       appVersion: config.appVersion ?? '1.0.0',
       clientType: config.clientType ?? 'web',
+      localMode: config.localMode ?? false,
     };
+  }
+
+  // 本地模式工厂方法
+  static local(): LegalAgentClient {
+    return new LegalAgentClient({
+      baseUrl: 'http://127.0.0.1:3000',
+      clientType: 'local',
+      localMode: true,
+    });
   }
 
   // ==================== 认证 ====================
@@ -92,6 +102,19 @@ export class LegalAgentClient {
     externalId: string,
     role?: string,
   ): Promise<RequestResult<AuthResult>> {
+    if (this.config.localMode) {
+      // 本地模式：直接返回本地用户
+      return {
+        ok: true,
+        data: {
+          accessToken: 'local-token',
+          refreshToken: 'local-refresh',
+          userId: 'local-user',
+          isNewUser: true,
+        },
+        traceId: '',
+      };
+    }
     const res = await this.request('/auth/login', {
       method: 'POST',
       body: { provider, externalId, role },
