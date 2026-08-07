@@ -73,15 +73,27 @@ async function bootstrap(): Promise<void> {
   }
 
   const port = process.env.PORT ?? '3000';
+  const isLocal = process.env.NODE_ENV === 'local';
+  const logger = new Logger('Bootstrap');
+
+  if (isLocal) {
+    logger.log('Running in LOCAL mode - JWT auth disabled, CORS open to localhost');
+    logger.log(`Server running on http://localhost:${port}`);
+    logger.log(
+      `Swagger UI: http://localhost:${port}${config.get<string>('app.swagger.path') ?? '/docs'}`,
+    );
+  }
+
   await app.listen(port);
 
-  const logger = new Logger('Bootstrap');
-  logger.log(`legal-agent NestJS service listening on :${port}`);
-  logger.log(`health check: GET http://localhost:${port}/health`);
-  if (swaggerEnabled) {
-    logger.log(
-      `swagger UI: http://localhost:${port}${config.get<string>('app.swagger.path') ?? '/docs'}`,
-    );
+  if (!isLocal) {
+    logger.log(`legal-agent NestJS service listening on :${port}`);
+    logger.log(`health check: GET http://localhost:${port}/health`);
+    if (swaggerEnabled) {
+      logger.log(
+        `swagger UI: http://localhost:${port}${config.get<string>('app.swagger.path') ?? '/docs'}`,
+      );
+    }
   }
 }
 

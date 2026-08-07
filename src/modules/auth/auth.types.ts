@@ -18,6 +18,8 @@ export interface JwtPayload {
   role?: string;
   /** token 类型：access / refresh */
   type?: 'access' | 'refresh';
+  /** 运行环境（local/dev/prod 等） */
+  env?: string;
   /** 签发时间（秒） */
   iat?: number;
   /** 过期时间（秒） */

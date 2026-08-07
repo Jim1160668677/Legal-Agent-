@@ -7,18 +7,22 @@
 import * as Joi from 'joi';
 
 export const validationSchema = Joi.object({
-  NODE_ENV: Joi.string().valid('dev', 'staging', 'prod', 'test').default('dev'),
+  NODE_ENV: Joi.string().valid('dev', 'staging', 'prod', 'test', 'local').default('dev'),
   PORT: Joi.number().port().default(3000),
 
   // MongoDB
   MONGO_URI: Joi.string().required().description('MongoDB 连接字符串'),
 
   // Redis
-  REDIS_URL: Joi.string().required().description('Redis 连接字符串'),
+  REDIS_URL: Joi.string().allow('').default('').description('Redis 连接字符串（本地模式可为空）'),
   REDIS_KEY_PREFIX: Joi.string().default('legal:'),
 
-  // JWT（强制 ≥32 字符，杜绝弱密钥；与 PII 派生链路同源风险隔离）
-  JWT_SECRET: Joi.string().min(32).required().description('JWT 签名密钥（≥32 字符）'),
+  // JWT（强制 ≥32 字符，杜绝弱密钥；与 PII 派生链路同源风险隔离；local 模式除外）
+  JWT_SECRET: Joi.when('NODE_ENV', {
+    is: 'local',
+    then: Joi.string().allow('').default('local-dev-secret-change-me'),
+    otherwise: Joi.string().min(32).required().description('JWT 签名密钥（≥32 字符）'),
+  }),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('30d'),
 

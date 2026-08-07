@@ -8,6 +8,7 @@ import { registerAs } from '@nestjs/config';
 import type { AppConfig } from './config.types';
 
 export default registerAs('app', (): AppConfig => {
+  const isLocal = (process.env.NODE_ENV ?? 'dev') === 'local';
   const provider = (process.env.LLM_PROVIDER ?? 'agnes') as 'agnes' | 'qwen' | 'zhipu';
 
   // dev 环境允许 AGNES_API_KEY 缺失（仅 NestJS 骨架验证，不调 LLM）
@@ -15,18 +16,19 @@ export default registerAs('app', (): AppConfig => {
   const zhipuApiKey = process.env.ZHIPU_API_KEY ?? '';
 
   return {
-    env: (process.env.NODE_ENV ?? 'dev') as AppConfig['env'],
+    env: isLocal ? 'local' : (process.env.NODE_ENV ?? 'dev') as AppConfig['env'],
     port: parseInt(process.env.PORT ?? '3000', 10),
     mongo: {
       uri: process.env.MONGO_URI ?? 'mongodb://localhost:27017/legal-agent',
     },
     redis: {
-      url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+      url: isLocal ? '' : (process.env.REDIS_URL ?? 'redis://localhost:6379'),
       keyPrefix: process.env.REDIS_KEY_PREFIX ?? 'legal:',
     },
     jwt: {
-      // JWT_SECRET 由 Joi 校验强制 ≥32 字符且 required，此处不再兜底弱密钥（避免源码内嵌已知密钥）
-      secret: process.env.JWT_SECRET!,
+      secret: isLocal
+        ? 'local-dev-secret-change-me'
+        : (process.env.JWT_SECRET ?? generateRandomSecret()),
       expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
       refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '30d',
     },
@@ -65,10 +67,12 @@ export default registerAs('app', (): AppConfig => {
     },
     // Phase 2 A5 关键项：CORS / Swagger / Throttle
     cors: {
-      origins: (process.env.CORS_ORIGINS ?? '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
+      origins: isLocal
+        ? ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173']
+        : (process.env.CORS_ORIGINS ?? '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
     },
     swagger: {
       enabled: (process.env.SWAGGER_ENABLED ?? 'true') === 'true',
@@ -89,3 +93,9 @@ export default registerAs('app', (): AppConfig => {
     },
   };
 });
+
+/** 生成随机 JWT 密钥（≥32 字符） */
+function generateRandomSecret(): string {
+  const { randomBytes } = require('crypto') as typeof import('crypto');
+  return randomBytes(32).toString('hex');
+}

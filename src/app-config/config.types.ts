@@ -10,7 +10,7 @@
 import type { EmbeddingConfig } from '../modules/legal/embedding/embedding.types';
 
 export interface AppConfig {
-  env: 'dev' | 'staging' | 'prod';
+  env: 'dev' | 'staging' | 'prod' | 'test' | 'local';
   port: number;
   mongo: {
     uri: string;
