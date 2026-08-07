@@ -7,6 +7,9 @@ import Chat from './pages/Chat'
 import CaseAnalysis from './pages/CaseAnalysis'
 import Knowledge from './pages/Knowledge'
 import Profile from './pages/Profile'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import UserAgreement from './pages/UserAgreement'
+import AiDisclaimer from './pages/AiDisclaimer'
 import { useAuthStore } from './stores/authStore'
 
 function App() {
@@ -27,6 +30,9 @@ function App() {
             <Route path="knowledge" element={<Knowledge />} />
             <Route path="profile" element={<Profile />} />
           </Route>
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/agreement" element={<UserAgreement />} />
+          <Route path="/disclaimer" element={<AiDisclaimer />} />
         </Routes>
       </BrowserRouter>
     </ConfigProvider>

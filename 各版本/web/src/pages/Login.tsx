@@ -1,8 +1,8 @@
 /**
  * 登录页面
  */
-import { useState } from 'react'
-import { Form, Input, Button, Card, Alert, Typography } from 'antd'
+import { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, Alert, Typography, Spin } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
@@ -10,24 +10,48 @@ import { LegalAgentClient } from '@legal-agent/sdk'
 
 const { Title, Text } = Typography
 
-// 从环境变量获取API地址，Vercel部署时使用相对路径
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+// 从环境变量获取API地址，本地模式使用 localhost
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+
+// 本地模式：自动检测
+const isLocal = API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1')
 
 export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const [loading, setLoading] = useState(false)
+  const [autoLogin, setAutoLogin] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const client = new LegalAgentClient({
     baseUrl: API_BASE_URL,
   })
 
+  // 本地模式：自动登录
+  useEffect(() => {
+    if (isLocal) {
+      setAutoLogin(true)
+      const timer = setTimeout(() => {
+        login({ id: 'local-user', username: '本地用户' }, 'local-token', 'local-refresh')
+        navigate('/')
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
   const handleSubmit = async (values: { username: string; password: string }) => {
     setLoading(true)
     setError(null)
 
     try {
+      // 本地模式：自动创建本地用户
+      if (isLocal) {
+        login({ id: 'local-user', username: '本地用户' }, 'local-token', 'local-refresh')
+        navigate('/')
+        return
+      }
+
+      // 正常登录逻辑
       const result = await client.login(values.username, values.password)
       login(result.user, result.token, result.refreshToken)
       navigate('/')
@@ -68,6 +92,13 @@ export default function Login() {
             showIcon
             style={{ marginBottom: 16 }}
           />
+        )}
+
+        {autoLogin && (
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <Spin size="small" />
+            <Text type="secondary" style={{ marginLeft: 8 }}>正在自动登录...</Text>
+          </div>
         )}
 
         <Form
