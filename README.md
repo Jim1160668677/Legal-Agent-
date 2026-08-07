@@ -1,6 +1,8 @@
 # legal-agent — NestJS 法律 AI 服务
 
-NestJS 10 + TypeScript 5.4 + MongoDB + Redis 构建的法律 AI 后端服务。包含 12 个 Agent（意图路由 + 混合检索 + 文书生成 + 律师审核闭环）、8 个法律工具、PII 保护、审计日志、SSE 流式响应，1037 项测试 + 6 套评测基线全部通过。
+NestJS 10 + TypeScript 5.4 + MongoDB + Redis 构建的法律 AI 后端服务。包含 12 个 Agent（意图路由 + 混合检索 + 文书生成 + 律师审核闭环）、8 个法律工具、PII 保护、审计日志、SSE 流式响应，1330 项测试全部通过。
+
+支持本地运行时模式（Electron + 本地 MongoDB）与云端部署两种部署方式。
 
 ## 项目特性
 
@@ -14,6 +16,7 @@ NestJS 10 + TypeScript 5.4 + MongoDB + Redis 构建的法律 AI 后端服务。�
 ## 目录
 
 - [快速开始](#快速开始) — 5 步本地启动
+- [本地运行时](#本地运行时) — Electron 桌面客户端 + 本地 MongoDB
 - [部署](#部署) — 生产部署完整流程见 [DEPLOYMENT.md](./DEPLOYMENT.md)
 - [API 文档](#api-文档) — 主要端点 + Swagger UI
 - [测试](#测试) — 单测 / 集成 / 6 套评测基线
@@ -42,6 +45,41 @@ curl http://localhost:3000/health            # {"code":0,"data":{"status":"ok"}}
 curl http://localhost:3000/health/ready      # {"code":0,"data":{"status":"ready","checks":{...}}}
 .\scripts\smoke-test.ps1                     # 全链路冒烟（health→login→chat→reviews→ready→404→agents）
 ```
+
+## 本地运行时（推荐个人使用）
+
+本地运行时模式无需云服务，所有数据存储在本地。通过 Electron 桌面客户端 + 本地 MongoDB 实现完全离线运行。
+
+```powershell
+# 1. 安装依赖
+npm install
+
+# 2. 配置本地模式（自动使用本地 MongoDB）
+Copy-Item .env.example .env
+# .env 中设置：NODE_ENV=local，MONGO_URI=mongodb://localhost:27017/legal-agent
+
+# 3. 启动 Electron 桌面客户端（自动启动 NestJS + MongoDB）
+npm run electron:dev
+```
+
+### 构建安装包
+
+```powershell
+npm run build:win   # Windows
+npm run build:mac   # macOS
+npm run build:linux # Linux
+```
+
+### 移动端调用本地 API
+
+```typescript
+import { LegalAgentClient } from '@legal-agent/sdk';
+
+const client = LegalAgentClient.local();
+const result = await client.chat({ message: '帮我写一份合同' });
+```
+
+详细指南见 [docs/LOCAL_RUNTIME_GUIDE.md](docs/LOCAL_RUNTIME_GUIDE.md) 和 [docs/MOBILE_INTEGRATION.md](docs/MOBILE_INTEGRATION.md)。
 
 ## 部署
 
@@ -98,7 +136,10 @@ npm run eval:lawyer-review    # 律师审核评测（62 题，100%）
 
 ---
 
-## LlmService 模块（历史）
+## 文档
+
+- [本地运行时指南](docs/LOCAL_RUNTIME_GUIDE.md) — Electron 桌面客户端 + 本地 MongoDB
+- [移动端集成指南](docs/MOBILE_INTEGRATION.md) — 通过 SDK 调用本地 API
 
 > 以下为 A1 阶段 LlmService 多供应商框架的原始文档，保留作为历史参考。当前 LLM 层已演进为 [cached-llm.service.ts](./src/modules/legal/llm/cached-llm.service.ts) 包装器模式（L3 缓存 + 熔断 + 法条回写），透明替换 legacy LlmServiceImpl。
 
