@@ -1,4 +1,14 @@
 # Vercel 部署排除文件
+# 排除依赖与构建产物（Vercel 会在云端 npm install + build）
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+reports/
+.output/
+.cache/
+
 # 排除测试文件
 tests/
 **/tests/
@@ -26,7 +36,7 @@ docs/
 各版本/harmonyos/
 各版本/wechat-miniapp/
 
-# 排除脚本
+# 排除脚本（含 serverless 本地冒烟等）
 scripts/
 
 # 排除配置文件
