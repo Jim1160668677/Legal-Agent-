@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import initDataDir from './init-data-dir';
 
 let mainWindow: BrowserWindow | null = null;
 let nestjsProcess: ChildProcess | null = null;
@@ -32,12 +33,7 @@ function createWindow() {
   });
 }
 
-function startMongo() {
-  const dataDir = path.join(app.getPath('appData'), 'legal-agent', 'data');
-  const dbPath = path.join(dataDir, 'mongodb');
-
-  fs.mkdirSync(dbPath, { recursive: true });
-
+function startMongo(dbPath: string) {
   mongoProcess = spawn('mongod', [
     '--dbpath', dbPath,
     '--port', '27017',
@@ -83,7 +79,8 @@ function startNestJS() {
 }
 
 app.whenReady().then(() => {
-  startMongo();
+  const { dbPath } = initDataDir();
+  startMongo(dbPath);
   startNestJS();
   createWindow();
 
@@ -127,7 +124,8 @@ ipcMain.handle('restart-server', () => {
   if (mongoProcess) {
     mongoProcess.kill();
   }
-  startMongo();
+  const { dbPath } = initDataDir();
+  startMongo(dbPath);
   startNestJS();
   return { ok: true };
 });
