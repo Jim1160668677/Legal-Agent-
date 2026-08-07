@@ -27,17 +27,17 @@
 
 | 平台 | 技术方案 | 理由 |
 |-----|---------|------|
-| Windows | Electron + NestJS | 成熟生态，开箱即用 |
-| macOS | Electron + NestJS | 同上 |
-| Linux | Electron + NestJS | 同上 |
-| Android | Native App + NestJS (本地服务) | 通过 HTTP 调用本机服务 |
-| iOS | Native App + NestJS (本地服务) | 通过 HTTP 调用本机服务 |
+| Windows | Electron + NestJS + MongoDB | 成熟生态，开箱即用 |
+| macOS | Electron + NestJS + MongoDB | 同上 |
+| Linux | Electron + NestJS + MongoDB | 同上 |
+| Android | Native App + SDK | 复用现有 SDK，HTTP 调用本机服务 |
+| iOS | Native App + SDK | 复用现有 SDK，HTTP 调用本机服务 |
 
 ### 3.2 核心架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    用户设备                              │
+│                    同一设备                              │
 │                                                         │
 │  ┌──────────────┐    ┌──────────────┐    ┌───────────┐ │
 │  │  Electron    │    │  Android     │    │  iOS      │ │
@@ -55,7 +55,7 @@
 │                             │                           │
 │                    ┌────────▼────────┐                  │
 │                    │  MongoDB        │                  │
-│                    │  (本地文件)     │                  │
+│                    │  (本地数据)     │                  │
 │                    └─────────────────┘                  │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
@@ -65,9 +65,10 @@
 
 | 决策点 | 选择 | 理由 |
 |-------|------|------|
-| 数据库 | SQLite（轻量）或嵌入式 MongoDB | SQLite 更简单，MongoDB 保持兼容性 |
-| API 访问 | 本地 HTTP + CORS 开放 | 移动端可通过 `http://127.0.0.1:3000` 访问 |
-| 认证 | 本地无密码 / 简单 Token | 单机场景不需要复杂认证 |
+| 数据库 | MongoDB（本地运行） | 保持与云端一致，无需迁移 |
+| API 访问 | 本地 HTTP (127.0.0.1:3000) | 本机调用，无需公网 |
+| 认证 | 无认证 | 本地信任，简化使用 |
+| CORS | 开放本地网络 | 移动端可访问 |
 | 安装包 | Electron Builder 打包 | 一键安装包，跨平台 |
 
 ## 4. 功能范围
@@ -116,22 +117,24 @@
 ### 6.1 现有代码适配
 
 1. **后端改造**
-   - 移除 `NODE_ENV=prod` 限制
-   - 支持本地 MongoDB（不依赖外部 Redis）
-   - CORS 开放本地访问
+   - 添加 `NODE_ENV=local` 模式
+   - 移除 Redis 依赖（或使用本地内存替代）
+   - CORS 开放本地网络 (`http://localhost:*`, `http://127.0.0.1:*`)
+   - 认证简化（本地模式跳过 JWT 验证）
 
 2. **前端适配**
    - 复用现有 React 应用
-   - 修改 API 地址为 `http://localhost:3000`
+   - API 地址默认 `http://localhost:3000`
+   - 移除登录页（或简化为首次启动向导）
 
 3. **SDK 适配**
    - 支持 `baseUrl: 'http://localhost:3000'`
-   - 移除认证要求（或简化为本地 Token）
+   - 本地模式无需 Token
 
 ### 6.2 数据迁移
 
-- 现有云端数据可导出为 JSON
-- 支持导入到本地数据库
+- 本地数据存储在 `~/.legal-agent/data/`
+- 支持导入云端数据（JSON 格式）
 
 ## 7. 验收标准
 
