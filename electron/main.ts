@@ -53,6 +53,9 @@ function startMongo(dbPath: string) {
 
 function startNestJS() {
   const distPath = path.join(__dirname, '../dist');
+  // 生成随机 JWT secret 而非硬编码
+  const { randomBytes } = require('crypto');
+  const jwtSecret = randomBytes(32).toString('hex');
 
   nestjsProcess = spawn('node', ['dist/main.js'], {
     cwd: distPath,
@@ -61,7 +64,7 @@ function startNestJS() {
       NODE_ENV: 'local',
       MONGO_URI: 'mongodb://127.0.0.1:27017/legal-agent',
       REDIS_URL: '',
-      JWT_SECRET: 'local-dev-secret-change-me',
+      JWT_SECRET: jwtSecret,
       CORS_ORIGINS: 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173',
     },
     stdio: 'inherit'

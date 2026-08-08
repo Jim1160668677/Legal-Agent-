@@ -26,11 +26,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const isLocal = config.get<string>('app.env') === 'local';
 
     if (isLocal) {
-      // 本地模式：跳过 JWT 验证
+      // 本地模式：使用配置的 secret（来自 generateRandomSecret），不验证签名
+      const secret = config.get<string>('app.jwt.secret') || 'local-dev-secret-fallback';
       super({
         jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
         ignoreExpiration: true,
-        secretOrKey: 'local-dev-secret-change-me',
+        secretOrKey: secret,
       } satisfies JwtStrategyOptions);
     } else {
       const secret = config.get<string>('app.jwt.secret');

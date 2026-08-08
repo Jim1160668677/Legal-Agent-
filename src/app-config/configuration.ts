@@ -27,8 +27,8 @@ export default registerAs('app', (): AppConfig => {
     },
     jwt: {
       secret: isLocal
-        ? 'local-dev-secret-change-me'
-        : (process.env.JWT_SECRET ?? generateRandomSecret()),
+        ? generateRandomSecret(64) // local 模式使用随机密钥，每次启动不同
+        : (process.env.JWT_SECRET ?? generateRandomSecret(32)),
       expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
       refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '30d',
     },
@@ -94,8 +94,8 @@ export default registerAs('app', (): AppConfig => {
   };
 });
 
-/** 生成随机 JWT 密钥（≥32 字符） */
-function generateRandomSecret(): string {
+/** 生成随机 JWT 密钥（>=length 字符的十六进制字符串） */
+function generateRandomSecret(length: number = 32): string {
   const { randomBytes } = require('crypto') as typeof import('crypto');
-  return randomBytes(32).toString('hex');
+  return randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
 }

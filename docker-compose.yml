@@ -20,11 +20,12 @@ services:
     image: mongo:7
     container_name: legal-mongo
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+    expose:
+      - "27017"
+    command: mongod --bind_ip 127.0.0.1
     environment:
-      MONGO_INITDB_ROOT_USERNAME: legal
-      MONGO_INITDB_ROOT_PASSWORD: legal123
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-legal}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-legal-$(openssl rand -hex 8)}
       MONGO_INITDB_DATABASE: legal_agent
     volumes:
       - legal-mongo-data:/data/db
@@ -39,13 +40,13 @@ services:
     image: redis:7-alpine
     container_name: legal-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    expose:
+      - "6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-legal-redis-$(openssl rand -hex 16)}
     volumes:
       - legal-redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-legal-redis}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -66,9 +67,9 @@ services:
     env_file:
       - .env
     environment:
-      # 覆盖 .env 中指向 localhost 的连接串为容器网络内的服务名
-      MONGO_URI: mongodb://legal:legal123@mongo:27017/legal_agent?authSource=admin
-      REDIS_URL: redis://redis:6379
+      # 覆盖 .env 中指�?localhost 的连接串为容器网络内的服务名
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-legal}:${MONGO_ROOT_PASSWORD}@mongo:27017/legal_agent?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       NODE_ENV: prod
       PORT: "3000"
     depends_on:

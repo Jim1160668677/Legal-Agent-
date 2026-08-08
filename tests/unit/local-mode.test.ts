@@ -43,7 +43,7 @@ describe('validationSchema: local mode', () => {
     });
     expect(error).toBeUndefined();
     expect(value.NODE_ENV).toBe('local');
-    expect(value.JWT_SECRET).toBe('local-dev-secret-change-me');
+    expect(value.JWT_SECRET).toBe('');
     expect(value.REDIS_URL).toBe('');
   });
 
@@ -57,13 +57,15 @@ describe('validationSchema: local mode', () => {
 });
 
 describe('configuration: local mode', () => {
-  it('local 模式下 redis.url 为空，jwt.secret 为固定值，cors.origins 含 localhost', () => {
+  it('local 模式下 redis.url 为空，jwt.secret 为随机值，cors.origins 含 localhost', () => {
     delete process.env.REDIS_URL;
     delete process.env.JWT_SECRET;
     const cfg = configurationFactory();
     expect(cfg.env).toBe('local');
     expect(cfg.redis.url).toBe('');
-    expect(cfg.jwt.secret).toBe('local-dev-secret-change-me');
+    // JWT secret 应为随机生成的 64 字符十六进制字符串
+    expect(cfg.jwt.secret).toHaveLength(64);
+    expect(cfg.jwt.secret).toMatch(/^[0-9a-f]{64}$/);
     expect(cfg.cors.origins).toContain('http://localhost:3000');
     expect(cfg.cors.origins).toContain('http://127.0.0.1:3000');
     expect(cfg.cors.origins).toContain('http://localhost:5173');
@@ -81,7 +83,7 @@ describe('JwtStrategy: local mode', () => {
         },
       }) as never;
 
-    expect(() => new JwtStrategy(makeConfig('local-dev-secret-change-me'))).not.toThrow();
+    expect(() => new JwtStrategy(makeConfig('local-dev-secret-fallback'))).not.toThrow();
   });
 
   it('local 模式下 validate 返回默认用户', async () => {
@@ -94,7 +96,7 @@ describe('JwtStrategy: local mode', () => {
         },
       }) as never;
 
-    const strat = new JwtStrategy(makeConfig('local-dev-secret-change-me'));
+    const strat = new JwtStrategy(makeConfig('local-dev-secret-fallback'));
     const payload: JwtPayload = { sub: 'any', type: 'access', env: 'local' };
     const result = await strat.validate(payload);
     expect(result.sub).toBe('local-user');

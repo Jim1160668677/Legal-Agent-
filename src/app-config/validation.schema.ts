@@ -20,7 +20,7 @@ export const validationSchema = Joi.object({
   // JWT（强制 ≥32 字符，杜绝弱密钥；与 PII 派生链路同源风险隔离；local 模式除外）
   JWT_SECRET: Joi.when('NODE_ENV', {
     is: 'local',
-    then: Joi.string().allow('').default('local-dev-secret-change-me'),
+    then: Joi.string().allow('').default(''),
     otherwise: Joi.string().min(32).required().description('JWT 签名密钥（≥32 字符）'),
   }),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
